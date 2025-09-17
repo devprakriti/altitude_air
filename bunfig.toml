@@ -1,0 +1,2 @@
+[install]
+# linker = "isolated"  # Commented out for Nuxt compatibility
