@@ -2,33 +2,13 @@ import "dotenv/config";
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { openapi } from '@elysiajs/openapi'
-import { auth, OpenAPI } from "./lib/auth";
+import { OpenAPI, authPlugin } from "./lib/auth";
 import { todoRouter } from "./routers/todo";
 import { monitoringRouter } from "./routers/monitoring";
 import { manualsRouter } from "./routers/manuals";
+import { filesRouter } from "./routers/files";
 import { fromTypes } from '@elysiajs/openapi/gen'
 import { helmet } from 'elysia-helmet';
-
-// Auth middleware with macros for easy usage
-const authMiddleware = new Elysia({ name: 'auth' })
-    .mount(auth.handler)
-    .macro({
-        auth: {
-            async resolve({ status, request: { headers } }) {
-                const session = await auth.api.getSession({ headers })
-                if (!session) return status(401, { error: "Unauthorized", message: "Authentication required" })
-                return { user: session.user, session: session.session }
-            }
-        },
-        admin: {
-            async resolve({ status, request: { headers } }) {
-                const session = await auth.api.getSession({ headers })
-                if (!session) return status(401, { error: "Unauthorized", message: "Authentication required" })
-                if (session.user.role !== "admin") return status(403, { error: "Forbidden", message: "Admin access required" })
-                return { user: session.user, session: session.session }
-            }
-        }
-    })
 
 const app = new Elysia()
   .use(cors({
@@ -37,8 +17,6 @@ const app = new Elysia()
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }))
-  .use(helmet())
-  .use(authMiddleware)
   .use(openapi({
     references: fromTypes(
       process.env.NODE_ENV === 'production'
@@ -62,15 +40,19 @@ const app = new Elysia()
         { name: "Todos", description: "Todo management endpoints" },
         { name: "Monitoring", description: "Monitoring charts and analytics endpoints" },
         { name: "Manuals", description: "Company manual management endpoints" },
+        { name: "Files", description: "File upload, download, and management endpoints" },
         { name: "Auth", description: "Authentication and authorization endpoints" },
       ],
       components: await OpenAPI.components,
       paths: await OpenAPI.getPaths(),
     }
   }))
+  .use(helmet())
+  .use(authPlugin)
   .use(todoRouter)
   .use(monitoringRouter)
   .use(manualsRouter)
+  .use(filesRouter)
   .get("/health", () => "OK")
   .get("/", () => "OK")
   .listen(3000, () => {

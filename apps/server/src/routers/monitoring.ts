@@ -8,13 +8,13 @@ export const monitoringRouter = new Elysia({
 		tags: ["Monitoring"]
 	}
 })
-	.post("/charts", async (context: any) => {
+	.post("/charts", async ({body}) => {
 		return await OrganizationService.createMonitoringChart({
-			name: context.body.name,
-			description: context.body.description,
-			chartType: context.body.chartType,
-			config: context.body.config ?? {},
-			organizationId: context.body.organizationId,
+			name: body.name,
+			description: body.description,
+			chartType: body.chartType,
+			config: body.config ?? {},
+			organizationId: body.organizationId,
 		});
 	}, {
 		auth: true,
@@ -44,11 +44,11 @@ export const monitoringRouter = new Elysia({
 			description: "Create a new monitoring chart for an organization",
 		}
 	})
-	.get("/charts", async (context: any) => {
+	.get("/charts", async ({ query }) => {
 		return await OrganizationService.getMonitoringCharts(
-			context.query.organizationId,
-			context.query.page || 1,
-			context.query.pageSize || 10
+			query.organizationId,
+			query.page || 1,
+			query.pageSize || 10
 		);
 	}, {
 		auth: true,
@@ -80,8 +80,8 @@ export const monitoringRouter = new Elysia({
 			description: "Retrieve monitoring charts for an organization with pagination",
 		}
 	})
-	.put("/charts/:id", async (context: any) => {
-		return await OrganizationService.updateMonitoringChart(context.params.id, context.body);
+	.put("/charts/:id", async ({ params, body }) => {
+		return await OrganizationService.updateMonitoringChart(params.id, body);
 	}, {
 		auth: true,
 		params: t.Object({ id: t.Numeric() }),
@@ -111,8 +111,8 @@ export const monitoringRouter = new Elysia({
 			description: "Update an existing monitoring chart",
 		}
 	})
-	.delete("/charts/:id", async (context: any) => {
-		return await OrganizationService.deleteMonitoringChart(context.params.id);
+	.delete("/charts/:id", async ({ params }) => {
+		return await OrganizationService.deleteMonitoringChart(params.id);
 	}, {
 		auth: true,
 		params: t.Object({ id: t.Numeric() }),

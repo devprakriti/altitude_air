@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { db } from "../db";
 import { todo } from "../db/schema/todo";
-import { errorModels, commonErrors } from "../lib/error-handler";
+import { commonErrors } from "../lib/error-handler";
+import { authPlugin } from "../lib/auth";
 
 export const todoRouter = new Elysia({ 
 	prefix: "/todos",
@@ -10,6 +11,7 @@ export const todoRouter = new Elysia({
 		tags: ["Todos"]
 	}
 })
+	.use(authPlugin)
 	.get("/", async () => {
 		return await db.select().from(todo);
 	}, {

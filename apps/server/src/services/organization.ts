@@ -5,11 +5,12 @@ import { eq, and, desc, like, count, isNull } from "drizzle-orm";
 export class OrganizationService {
 	// Extended User Profile Management (for custom fields beyond Better Auth)
 	static async createUserProfile(userId: string, fullName: string, phone?: string) {
-		return await db.insert(userProfiles).values({
+		await db.insert(userProfiles).values({
 			userId,
 			fullName,
 			phone,
-		}).returning();
+		});
+		return await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
 	}
 
 	static async getUserProfile(userId: string) {
@@ -18,10 +19,10 @@ export class OrganizationService {
 	}
 
 	static async updateUserProfile(userId: string, data: Partial<typeof userProfiles.$inferInsert>) {
-		return await db.update(userProfiles)
+		await db.update(userProfiles)
 			.set({ ...data, updatedAt: new Date() })
-			.where(eq(userProfiles.userId, userId))
-			.returning();
+			.where(eq(userProfiles.userId, userId));
+		return await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
 	}
 
 	// Monitoring Charts Management
@@ -32,7 +33,8 @@ export class OrganizationService {
 		config: any;
 		organizationId: string;
 	}) {
-		return await db.insert(monitoringCharts).values(data).returning();
+		const result = await db.insert(monitoringCharts).values(data);
+		return await db.select().from(monitoringCharts).where(eq(monitoringCharts.id, result[0].insertId));
 	}
 
 	static async getMonitoringCharts(organizationId: string, page = 1, pageSize = 10) {
@@ -64,17 +66,17 @@ export class OrganizationService {
 	}
 
 	static async updateMonitoringChart(id: number, data: Partial<typeof monitoringCharts.$inferInsert>) {
-		return await db.update(monitoringCharts)
+		await db.update(monitoringCharts)
 			.set({ ...data, updatedAt: new Date() })
-			.where(eq(monitoringCharts.id, id))
-			.returning();
+			.where(eq(monitoringCharts.id, id));
+		return await db.select().from(monitoringCharts).where(eq(monitoringCharts.id, id));
 	}
 
 	static async deleteMonitoringChart(id: number) {
-		return await db.update(monitoringCharts)
+		await db.update(monitoringCharts)
 			.set({ status: false, updatedAt: new Date() })
-			.where(eq(monitoringCharts.id, id))
-			.returning();
+			.where(eq(monitoringCharts.id, id));
+		return await db.select().from(monitoringCharts).where(eq(monitoringCharts.id, id));
 	}
 
 	// Company Manuals Management
@@ -87,7 +89,8 @@ export class OrganizationService {
 		organizationId: string;
 		uploadedBy: string;
 	}) {
-		return await db.insert(companyManuals).values(data).returning();
+		const result = await db.insert(companyManuals).values(data);
+		return await db.select().from(companyManuals).where(eq(companyManuals.id, result[0].insertId));
 	}
 
 	static async getCompanyManuals(organizationId: string, page = 1, pageSize = 10, search?: string) {
@@ -122,17 +125,17 @@ export class OrganizationService {
 	}
 
 	static async updateCompanyManual(id: number, data: Partial<typeof companyManuals.$inferInsert>) {
-		return await db.update(companyManuals)
+		await db.update(companyManuals)
 			.set({ ...data, updatedAt: new Date() })
-			.where(eq(companyManuals.id, id))
-			.returning();
+			.where(eq(companyManuals.id, id));
+		return await db.select().from(companyManuals).where(eq(companyManuals.id, id));
 	}
 
 	static async deleteCompanyManual(id: number) {
-		return await db.update(companyManuals)
+		await db.update(companyManuals)
 			.set({ status: false, updatedAt: new Date() })
-			.where(eq(companyManuals.id, id))
-			.returning();
+			.where(eq(companyManuals.id, id));
+		return await db.select().from(companyManuals).where(eq(companyManuals.id, id));
 	}
 
 	// System Configuration Management
@@ -142,7 +145,8 @@ export class OrganizationService {
 		description?: string;
 		organizationId?: string;
 	}) {
-		return await db.insert(systemConfig).values(data).returning();
+		const result = await db.insert(systemConfig).values(data);
+		return await db.select().from(systemConfig).where(eq(systemConfig.id, result[0].insertId));
 	}
 
 	static async getSystemConfig(key: string, organizationId?: string) {
@@ -170,10 +174,10 @@ export class OrganizationService {
 			whereConditions.push(isNull(systemConfig.organizationId));
 		}
 
-		return await db.update(systemConfig)
+		await db.update(systemConfig)
 			.set({ value, updatedAt: new Date() })
-			.where(and(...whereConditions))
-			.returning();
+			.where(and(...whereConditions));
+		return await db.select().from(systemConfig).where(and(...whereConditions));
 	}
 
 }

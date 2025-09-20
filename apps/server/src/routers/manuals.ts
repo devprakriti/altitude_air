@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { OrganizationService } from "../services/organization";
 import { commonErrors } from "../lib/error-handler";
+import { authPlugin } from "../lib/auth";
 
 export const manualsRouter = new Elysia({ 
 	prefix: "/manuals",
@@ -8,15 +9,16 @@ export const manualsRouter = new Elysia({
 		tags: ["Manuals"]
 	}
 })
-	.post("/", async (context: any) => {
+	.use(authPlugin)
+	.post("/", async ({body, user}) => {
 		return await OrganizationService.createCompanyManual({
-			title: context.body.title,
-			description: context.body.description,
-			filePath: context.body.filePath,
-			fileType: context.body.fileType,
-			fileSize: context.body.fileSize,
-			organizationId: context.body.organizationId,
-			uploadedBy: context.user.id,
+			title: body.title,
+			description: body.description,
+			filePath: body.filePath,
+			fileType: body.fileType,
+			fileSize: body.fileSize,
+			organizationId: body.organizationId,
+			uploadedBy: user.id,
 		});
 	}, {
 		auth: true,
@@ -49,12 +51,12 @@ export const manualsRouter = new Elysia({
 			description: "Upload and create a new company manual document",
 		}
 	})
-	.get("/", async (context: any) => {
+	.get("/", async ({ query }) => {
 		return await OrganizationService.getCompanyManuals(
-			context.query.organizationId,
-			context.query.page || 1,
-			context.query.pageSize || 10,
-			context.query.search
+			query.organizationId,
+			query.page || 1,
+			query.pageSize || 10,
+			query.search
 		);
 	}, {
 		auth: true,
@@ -89,8 +91,8 @@ export const manualsRouter = new Elysia({
 			description: "Retrieve company manuals for an organization with pagination and search",
 		}
 	})
-	.put("/:id", async (context: any) => {
-		return await OrganizationService.updateCompanyManual(context.params.id, context.body);
+	.put("/:id", async ({ params, body }) => {
+		return await OrganizationService.updateCompanyManual(params.id, body);
 	}, {
 		auth: true,
 		params: t.Object({ id: t.Numeric() }),
@@ -123,8 +125,8 @@ export const manualsRouter = new Elysia({
 			description: "Update an existing company manual document",
 		}
 	})
-	.delete("/:id", async (context: any) => {
-		return await OrganizationService.deleteCompanyManual(context.params.id);
+	.delete("/:id", async ({ params }) => {
+		return await OrganizationService.deleteCompanyManual(params.id);
 	}, {
 		auth: true,
 		params: t.Object({ id: t.Numeric() }),

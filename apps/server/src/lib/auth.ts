@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { Elysia } from "elysia";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
@@ -31,6 +32,36 @@ export const auth = betterAuth({
 		openAPI(),
 	],
 });
+
+export const authPlugin = new Elysia({ name: 'auth' })
+	.mount(auth.handler)
+	.decorate('getAuth', async (headers: Headers) => {
+		const session = await auth.api.getSession({ headers });
+		return session;
+	})
+	.macro({
+		auth: {
+			async resolve({ status, request: { headers }, getAuth }) {
+				const session = await getAuth(headers);
+				if (!session) return status(401);
+				return {
+					user: session.user,
+					session: session.session,
+				};
+			},
+		},
+		admin: {
+			async resolve({ status, request: { headers }, getAuth }) {
+				const session = await getAuth(headers);
+				if (!session) return status(401);
+				if (session.user.role !== "admin") return status(403);
+				return {
+					user: session.user,
+					session: session.session,
+				};
+			},
+		},
+	});
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema())
