@@ -33,6 +33,7 @@
     "@tanstack/vue-query-devtools": "^5.83.0",
     "elysia": "^1.4.5",
     "nitro-cloudflare-dev": "^0.2.2",
+    "nuxt-elysia": "^0.2.0",
     "tailwindcss": "^4.1.11",
     "wrangler": "^4.23.0"
   },

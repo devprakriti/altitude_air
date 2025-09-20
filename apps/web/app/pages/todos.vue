@@ -2,6 +2,10 @@
 import { ref } from "vue";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/vue-query";
 
+definePageMeta({
+  middleware: ["auth"],
+});
+
 const { $eden } = useNuxtApp();
 const newTodoText = ref("");
 const queryClient = useQueryClient();

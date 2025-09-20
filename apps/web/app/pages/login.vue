@@ -1,24 +1,25 @@
 <script setup lang="ts">
-const { $authClient } = useNuxtApp();
 import SignInForm from "~/components/SignInForm.vue";
 import SignUpForm from "~/components/SignUpForm.vue";
 
-const session = $authClient.useSession();
+definePageMeta({
+  layout: "auth",
+});
+
+const { isAuthenticated, isLoading } = useAuth();
 const showSignIn = ref(true);
 
 watchEffect(() => {
-  if (!session?.value.isPending && session?.value.data) {
+  if (!isLoading.value && isAuthenticated.value) {
     navigateTo("/dashboard", { replace: true });
   }
 });
 </script>
 
 <template>
-  <div>
-    <Loader v-if="session.isPending" />
-    <div v-else-if="!session.data">
-      <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
-      <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
-    </div>
+  <Loader v-if="isLoading" />
+  <div v-else-if="!isAuthenticated">
+    <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
+    <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
   </div>
 </template>

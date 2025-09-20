@@ -6,58 +6,45 @@ import { auth, OpenAPI } from "./lib/auth";
 import { todoRouter } from "./routers/todo";
 import { monitoringRouter } from "./routers/monitoring";
 import { manualsRouter } from "./routers/manuals";
-import { allModels } from "./models";
-import logixlysia from 'logixlysia'
+import { fromTypes } from '@elysiajs/openapi/gen'
+import { helmet } from 'elysia-helmet';
 
-// Better Auth middleware for authentication
-const betterAuth = new Elysia({ name: 'better-auth' })
+// Auth middleware with macros for easy usage
+const authMiddleware = new Elysia({ name: 'auth' })
     .mount(auth.handler)
     .macro({
         auth: {
             async resolve({ status, request: { headers } }) {
-                const session = await auth.api.getSession({
-                    headers
-                })
-
-                if (!session) return status(401)
-
-                return {
-                    user: session.user,
-                    session: session.session
-                }
+                const session = await auth.api.getSession({ headers })
+                if (!session) return status(401, { error: "Unauthorized", message: "Authentication required" })
+                return { user: session.user, session: session.session }
+            }
+        },
+        admin: {
+            async resolve({ status, request: { headers } }) {
+                const session = await auth.api.getSession({ headers })
+                if (!session) return status(401, { error: "Unauthorized", message: "Authentication required" })
+                if (session.user.role !== "admin") return status(403, { error: "Forbidden", message: "Admin access required" })
+                return { user: session.user, session: session.session }
             }
         }
     })
 
 const app = new Elysia()
-  .model(allModels)
-  .use(
-    cors({
-      origin: process.env.CORS_ORIGIN || "",
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
-      credentials: true,
-    })
-  )
-  .use(logixlysia(
-    {
-      config: {
-        showStartupMessage: true,
-        startupMessageFormat: "banner",
-        timestamp: {
-          translateTime: "yyyy-mm-dd HH:MM:ss",
-        },
-        logFilePath: "./logs/app.log",
-        logRotation: {
-          maxSize: 10,
-          compress: true,
-        },
-        ip: true,
-      }
-    }
-  ))
-  .use(betterAuth)
+  .use(cors({
+    origin: process.env.CORS_ORIGIN || "",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  }))
+  .use(helmet())
+  .use(authMiddleware)
   .use(openapi({
+    references: fromTypes(
+      process.env.NODE_ENV === 'production'
+        ? 'dist/index.d.ts'
+        : 'src/index.ts'
+    ),
     documentation: {
       info: {
         title: "Heli API",
@@ -77,38 +64,15 @@ const app = new Elysia()
         { name: "Manuals", description: "Company manual management endpoints" },
         { name: "Auth", description: "Authentication and authorization endpoints" },
       ],
-		components: await OpenAPI.components,
-        paths: await OpenAPI.getPaths(),
+      components: await OpenAPI.components,
+      paths: await OpenAPI.getPaths(),
     }
   }))
-
   .use(todoRouter)
   .use(monitoringRouter)
   .use(manualsRouter)
-  // Health check endpoints
-  .get("/health", () => "OK", {
-    detail: {
-      summary: "Health check endpoint",
-      description: "Returns OK if the server is running",
-      tags: ["Health"]
-    }
-  })
-  .get("/metrics", () => ({
-    uptime: process.uptime(),
-  }), {
-    detail: {
-      summary: "Server metrics",
-      description: "Returns server uptime and performance metrics",
-      tags: ["Health"]
-    }
-  })
-  .get("/", () => "OK", {
-    detail: {
-      summary: "Root endpoint",
-      description: "Returns OK if the server is running",
-      tags: ["Health"]
-    }
-  })
+  .get("/health", () => "OK")
+  .get("/", () => "OK")
   .listen(3000, () => {
     console.log(`Let's go! 🚁`);
   });

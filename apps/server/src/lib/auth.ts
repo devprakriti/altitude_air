@@ -1,16 +1,14 @@
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
 import { openAPI } from "better-auth/plugins";
 import { db } from "../db";
-import * as authSchema from "../db/schema/auth";
 
 export const auth = betterAuth({
 	basePath: "/auth",
 	database: drizzleAdapter(db, {
 		provider: "pg",
-		schema: authSchema,
 	}),
 	trustedOrigins: [process.env.CORS_ORIGIN || ""],
 	emailAndPassword: {
@@ -38,7 +36,7 @@ let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema())
 
 export const OpenAPI = {
-    getPaths: (prefix = '/auth/api') =>
+    getPaths: (prefix = '/auth') =>
         getSchema().then(({ paths }) => {
             const reference: typeof paths = Object.create(null)
 
@@ -48,7 +46,6 @@ export const OpenAPI = {
 
                 for (const method of Object.keys(paths[path])) {
                     const operation = (reference[key] as any)[method]
-
                     operation.tags = ['Better Auth']
                 }
             }

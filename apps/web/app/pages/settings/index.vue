@@ -1,49 +1,100 @@
 <script setup lang="ts">
-import * as z from 'zod'
-import type { FormSubmitEvent } from '@nuxt/ui'
+import * as z from "zod";
+import type { FormSubmitEvent } from "@nuxt/ui";
 
-const fileRef = ref<HTMLInputElement>()
+const { user, updateProfile } = useAuth();
+const fileRef = ref<HTMLInputElement>();
 
 const profileSchema = z.object({
-  name: z.string().min(2, 'Too short'),
-  email: z.string().email('Invalid email'),
-  username: z.string().min(2, 'Too short'),
-  avatar: z.string().optional(),
-  bio: z.string().optional()
-})
+  name: z.string().min(2, "Too short"),
+  email: z.string().email("Invalid email"),
+  bio: z.string().optional(),
+});
 
-type ProfileSchema = z.output<typeof profileSchema>
+type ProfileSchema = z.output<typeof profileSchema>;
 
 const profile = reactive<Partial<ProfileSchema>>({
-  name: 'Benjamin Canac',
-  email: 'ben@nuxtlabs.com',
-  username: 'benjamincanac',
-  avatar: undefined,
-  bio: undefined
-})
-const toast = useToast()
+  name: user.value?.name || "",
+  email: user.value?.email || "",
+  bio: "",
+});
+
+// Update profile when user changes
+watch(
+  user,
+  (newUser) => {
+    if (newUser) {
+      profile.name = newUser.name || "";
+      profile.email = newUser.email || "";
+    }
+  },
+  { immediate: true }
+);
+
+const toast = useToast();
+const loading = ref(false);
+
 async function onSubmit(event: FormSubmitEvent<ProfileSchema>) {
-  toast.add({
-    title: 'Success',
-    description: 'Your settings have been updated.',
-    icon: 'i-lucide-check',
-    color: 'success'
-  })
-  console.log(event.data)
+  loading.value = true;
+  try {
+    await updateProfile({
+      name: event.data.name,
+    });
+
+    toast.add({
+      title: "Success",
+      description: "Your profile has been updated.",
+      icon: "i-lucide-check",
+      color: "success",
+    });
+  } catch (error: any) {
+    toast.add({
+      title: "Error",
+      description: error.message || "Failed to update profile.",
+      icon: "i-lucide-x",
+      color: "error",
+    });
+  } finally {
+    loading.value = false;
+  }
 }
 
 function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
+  const input = e.target as HTMLInputElement;
 
   if (!input.files?.length) {
-    return
+    return;
   }
 
-  profile.avatar = URL.createObjectURL(input.files[0]!)
+  // In a real app, you'd upload this to a file storage service
+  const file = input.files[0]!;
+  const reader = new FileReader();
+
+  reader.onload = async (e) => {
+    const result = e.target?.result as string;
+    try {
+      await updateProfile({ image: result });
+      toast.add({
+        title: "Success",
+        description: "Avatar updated successfully.",
+        icon: "i-lucide-check",
+        color: "success",
+      });
+    } catch (error: any) {
+      toast.add({
+        title: "Error",
+        description: "Failed to update avatar.",
+        icon: "i-lucide-x",
+        color: "error",
+      });
+    }
+  };
+
+  reader.readAsDataURL(file);
 }
 
 function onFileClick() {
-  fileRef.value?.click()
+  fileRef.value?.click();
 }
 </script>
 
@@ -66,6 +117,7 @@ function onFileClick() {
         label="Save changes"
         color="neutral"
         type="submit"
+        :loading="loading"
         class="w-fit lg:ms-auto"
       />
     </UPageCard>
@@ -78,10 +130,7 @@ function onFileClick() {
         required
         class="flex max-sm:flex-col justify-between items-start gap-4"
       >
-        <UInput
-          v-model="profile.name"
-          autocomplete="off"
-        />
+        <UInput v-model="profile.name" autocomplete="off" />
       </UFormField>
       <USeparator />
       <UFormField
@@ -95,20 +144,7 @@ function onFileClick() {
           v-model="profile.email"
           type="email"
           autocomplete="off"
-        />
-      </UFormField>
-      <USeparator />
-      <UFormField
-        name="username"
-        label="Username"
-        description="Your unique username for logging in and your profile URL."
-        required
-        class="flex max-sm:flex-col justify-between items-start gap-4"
-      >
-        <UInput
-          v-model="profile.username"
-          type="username"
-          autocomplete="off"
+          disabled
         />
       </UFormField>
       <USeparator />
@@ -119,23 +155,15 @@ function onFileClick() {
         class="flex max-sm:flex-col justify-between sm:items-center gap-4"
       >
         <div class="flex flex-wrap items-center gap-3">
-          <UAvatar
-            :src="profile.avatar"
-            :alt="profile.name"
-            size="lg"
-          />
-          <UButton
-            label="Choose"
-            color="neutral"
-            @click="onFileClick"
-          />
+          <UAvatar :src="user?.image" :alt="profile.name" size="lg" />
+          <UButton label="Choose" color="neutral" @click="onFileClick" />
           <input
             ref="fileRef"
             type="file"
             class="hidden"
             accept=".jpg, .jpeg, .png, .gif"
             @change="onFileChange"
-          >
+          />
         </div>
       </UFormField>
       <USeparator />
@@ -146,12 +174,7 @@ function onFileClick() {
         class="flex max-sm:flex-col justify-between items-start gap-4"
         :ui="{ container: 'w-full' }"
       >
-        <UTextarea
-          v-model="profile.bio"
-          :rows="5"
-          autoresize
-          class="w-full"
-        />
+        <UTextarea v-model="profile.bio" :rows="5" autoresize class="w-full" />
       </UFormField>
     </UPageCard>
   </UForm>

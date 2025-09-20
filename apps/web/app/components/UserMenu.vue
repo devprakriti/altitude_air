@@ -29,20 +29,19 @@ const colors = [
 ];
 const neutrals = ["slate", "gray", "zinc", "neutral", "stone"];
 
-const { $authClient } = useNuxtApp();
-const session = $authClient.useSession();
+const { user, signOut } = useAuth();
 
-const user = computed(() => {
-  if (session.value?.data?.user) {
+const userDisplay = computed(() => {
+  if (user.value) {
     return {
-      name: session.value.data.user.name || session.value.data.user.email,
+      name: user.value.name || user.value.email,
       avatar: {
         src:
-          session.value.data.user.image ||
+          user.value.image ||
           `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            session.value.data.user.name || session.value.data.user.email
+            user.value.name || user.value.email
           )}&background=random`,
-        alt: session.value.data.user.name || session.value.data.user.email,
+        alt: user.value.name || user.value.email,
       },
     };
   }
@@ -59,8 +58,8 @@ const items = computed<DropdownMenuItem[][]>(() => [
   [
     {
       type: "label",
-      label: user.value.name,
-      avatar: user.value.avatar,
+      label: userDisplay.value.name,
+      avatar: userDisplay.value.avatar,
     },
   ],
   [
@@ -222,8 +221,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       label: "Log out",
       icon: "i-lucide-log-out",
       onClick: async () => {
-        await $authClient.signOut();
-        await navigateTo("/login");
+        await signOut();
       },
     },
   ],
@@ -240,8 +238,8 @@ const items = computed<DropdownMenuItem[][]>(() => [
   >
     <UButton
       v-bind="{
-        ...user,
-        label: collapsed ? undefined : user?.name,
+        ...userDisplay,
+        label: collapsed ? undefined : userDisplay?.name,
         trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down',
       }"
       color="neutral"
@@ -258,7 +256,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       <span
         :style="{
           '--chip-light': `var(--color-${(item as any).chip}-500)`,
-          '--chip-dark': `var(--color-${(item as any).chip}-400)`
+          '--chip-dark': `var(--color-${(item as any).chip}-400)`,
         }"
         class="ms-0.5 size-2 rounded-full bg-(--chip-light) dark:bg-(--chip-dark)"
       />

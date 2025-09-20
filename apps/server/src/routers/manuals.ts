@@ -1,106 +1,148 @@
 import { Elysia, t } from "elysia";
-import { OrganizationService } from "../lib/organization";
-import { manualModels, commonModels } from "../models";
+import { OrganizationService } from "../services/organization";
+import { commonErrors } from "../lib/error-handler";
 
 export const manualsRouter = new Elysia({ 
 	prefix: "/manuals",
 	detail: {
-		tags: ["Manuals"],
-		security: [{ bearerAuth: [] }]
+		tags: ["Manuals"]
 	}
 })
-	.guard({
-		detail: {
-			description: "Requires authentication"
-		}
-	})
-	.post("/", async ({ body, ...context }) => {
-		// Better Auth handles authorization through session context
-		const user = (context as any).user;
+	.post("/", async (context: any) => {
 		return await OrganizationService.createCompanyManual({
-			title: body.title,
-			description: body.description || undefined,
-			filePath: body.filePath,
-			fileType: body.fileType,
-			fileSize: body.fileSize || undefined,
-			organizationId: body.organizationId,
-			uploadedBy: user?.id || "",
+			title: context.body.title,
+			description: context.body.description,
+			filePath: context.body.filePath,
+			fileType: context.body.fileType,
+			fileSize: context.body.fileSize,
+			organizationId: context.body.organizationId,
+			uploadedBy: context.user.id,
 		});
 	}, {
 		auth: true,
-		body: manualModels.CreateCompanyManual,
+		body: t.Object({
+			title: t.String(),
+			description: t.Optional(t.String()),
+			filePath: t.String(),
+			fileType: t.String(),
+			fileSize: t.Optional(t.Number()),
+			organizationId: t.String()
+		}),
 		response: {
-			200: manualModels.CompanyManualArray,
-			400: commonModels.Error,
-			401: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				title: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				filePath: t.String(),
+				fileType: t.String(),
+				fileSize: t.Union([t.Number(), t.Null()]),
+				organizationId: t.String(),
+				uploadedBy: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Create a company manual",
 			description: "Upload and create a new company manual document",
 		}
 	})
-	.get("/", async ({ query }) => {
-		// Better Auth handles authorization through session context
+	.get("/", async (context: any) => {
 		return await OrganizationService.getCompanyManuals(
-			query.organizationId,
-			query.page || 1,
-			query.pageSize || 10,
-			query.search
+			context.query.organizationId,
+			context.query.page || 1,
+			context.query.pageSize || 10,
+			context.query.search
 		);
 	}, {
 		auth: true,
 		query: t.Object({
-			organizationId: t.String({ description: "Organization ID" }),
-			page: t.Optional(t.Numeric({ minimum: 1, description: "Page number" })),
-			pageSize: t.Optional(t.Numeric({ minimum: 1, maximum: 100, description: "Number of items per page" })),
-			search: t.Optional(t.String({ description: "Search term for filtering manuals" })),
-		}, { description: "Query parameters for pagination and search" }),
+			organizationId: t.String(),
+			page: t.Optional(t.Numeric()),
+			pageSize: t.Optional(t.Numeric()),
+			search: t.Optional(t.String())
+		}),
 		response: {
-			200: manualModels.CompanyManualsResponse,
-			400: commonModels.Error,
-			401: commonModels.Error
+			200: t.Object({
+				manuals: t.Array(t.Object({
+					id: t.Number(),
+					title: t.String(),
+					description: t.Union([t.String(), t.Null()]),
+					filePath: t.String(),
+					fileType: t.String(),
+					fileSize: t.Union([t.Number(), t.Null()]),
+					organizationId: t.String(),
+					uploadedBy: t.String(),
+					status: t.Boolean(),
+					createdAt: t.Date(),
+					updatedAt: t.Date()
+				})),
+				totalCount: t.Number(),
+				totalPages: t.Number()
+			}),
+			...commonErrors
 		},
 		detail: {
 			summary: "Get company manuals",
 			description: "Retrieve company manuals for an organization with pagination and search",
 		}
 	})
-	.put("/:id", async ({ params, body }) => {
-		// Better Auth handles authorization through session context
-		const { id, organizationId, ...updateData } = { ...body, id: params.id };
-		return await OrganizationService.updateCompanyManual(id, updateData);
+	.put("/:id", async (context: any) => {
+		return await OrganizationService.updateCompanyManual(context.params.id, context.body);
 	}, {
 		auth: true,
-		params: t.Object({
-			id: t.Numeric({ description: "Manual ID" })
-		}, { description: "Manual identifier" }),
-		body: manualModels.UpdateCompanyManual,
+		params: t.Object({ id: t.Numeric() }),
+		body: t.Object({
+			title: t.Optional(t.String()),
+			description: t.Optional(t.String()),
+			filePath: t.Optional(t.String()),
+			fileType: t.Optional(t.String()),
+			fileSize: t.Optional(t.Number()),
+			organizationId: t.String()
+		}),
 		response: {
-			200: manualModels.CompanyManualArray,
-			400: commonModels.Error,
-			401: commonModels.Error,
-			404: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				title: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				filePath: t.String(),
+				fileType: t.String(),
+				fileSize: t.Union([t.Number(), t.Null()]),
+				organizationId: t.String(),
+				uploadedBy: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Update a company manual",
 			description: "Update an existing company manual document",
 		}
 	})
-	.delete("/:id", async ({ params, query }) => {
-		// Better Auth handles authorization through session context
-		return await OrganizationService.deleteCompanyManual(params.id);
+	.delete("/:id", async (context: any) => {
+		return await OrganizationService.deleteCompanyManual(context.params.id);
 	}, {
 		auth: true,
-		params: t.Object({
-			id: t.Numeric({ description: "Manual ID" })
-		}, { description: "Manual identifier" }),
-		query: t.Object({
-			organizationId: t.String({ description: "Organization ID" })
-		}, { description: "Organization identifier" }),
+		params: t.Object({ id: t.Numeric() }),
 		response: {
-			200: manualModels.CompanyManualArray,
-			401: commonModels.Error,
-			404: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				title: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				filePath: t.String(),
+				fileType: t.String(),
+				fileSize: t.Union([t.Number(), t.Null()]),
+				organizationId: t.String(),
+				uploadedBy: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Delete a company manual",

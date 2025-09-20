@@ -1,102 +1,134 @@
 import { Elysia, t } from "elysia";
-import { OrganizationService } from "../lib/organization";
-import { monitoringModels, commonModels } from "../models";
+import { OrganizationService } from "../services/organization";
+import { commonErrors } from "../lib/error-handler";
 
 export const monitoringRouter = new Elysia({ 
 	prefix: "/monitoring",
 	detail: {
-		tags: ["Monitoring"],
-		security: [{ bearerAuth: [] }]
+		tags: ["Monitoring"]
 	}
 })
-	.guard({
-		detail: {
-			description: "Requires authentication"
-		}
-	})
-	.post("/charts", async ({ body }) => {
-		// Better Auth handles authorization through session context
-		// Ensure config is always present, even if undefined
+	.post("/charts", async (context: any) => {
 		return await OrganizationService.createMonitoringChart({
-			name: body.name,
-			description: body.description || undefined,
-			chartType: body.chartType,
-			config: body.config ?? {},
-			organizationId: body.organizationId,
+			name: context.body.name,
+			description: context.body.description,
+			chartType: context.body.chartType,
+			config: context.body.config ?? {},
+			organizationId: context.body.organizationId,
 		});
 	}, {
 		auth: true,
-		body: monitoringModels.CreateMonitoringChart,
+		body: t.Object({
+			name: t.String(),
+			description: t.Optional(t.String()),
+			chartType: t.String(),
+			config: t.Optional(t.Any()),
+			organizationId: t.String()
+		}),
 		response: {
-			200: monitoringModels.MonitoringChartArray,
-			400: commonModels.Error,
-			401: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				name: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				chartType: t.String(),
+				config: t.Any(),
+				organizationId: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Create a monitoring chart",
 			description: "Create a new monitoring chart for an organization",
 		}
 	})
-	.get("/charts", async ({ query }) => {
-		// Better Auth handles authorization through session context
+	.get("/charts", async (context: any) => {
 		return await OrganizationService.getMonitoringCharts(
-			query.organizationId,
-			query.page || 1,
-			query.pageSize || 10
+			context.query.organizationId,
+			context.query.page || 1,
+			context.query.pageSize || 10
 		);
 	}, {
 		auth: true,
 		query: t.Object({
-			organizationId: t.String({ description: "Organization ID" }),
-			page: t.Optional(t.Numeric({ minimum: 1, description: "Page number" })),
-			pageSize: t.Optional(t.Numeric({ minimum: 1, maximum: 100, description: "Number of items per page" })),
-		}, { description: "Query parameters for pagination" }),
+			organizationId: t.String(),
+			page: t.Optional(t.Numeric()),
+			pageSize: t.Optional(t.Numeric())
+		}),
 		response: {
-			200: monitoringModels.MonitoringChartsResponse,
-			400: commonModels.Error,
-			401: commonModels.Error
+			200: t.Object({
+				charts: t.Array(t.Object({
+					id: t.Number(),
+					name: t.String(),
+					description: t.Union([t.String(), t.Null()]),
+					chartType: t.String(),
+					config: t.Any(),
+					organizationId: t.String(),
+					status: t.Boolean(),
+					createdAt: t.Date(),
+					updatedAt: t.Date()
+				})),
+				totalCount: t.Number(),
+				totalPages: t.Number()
+			}),
+			...commonErrors
 		},
 		detail: {
 			summary: "Get monitoring charts",
 			description: "Retrieve monitoring charts for an organization with pagination",
 		}
 	})
-	.put("/charts/:id", async ({ params, body }) => {
-		// Better Auth handles authorization through session context
-		const { id, organizationId, ...updateData } = { ...body, id: params.id };
-		return await OrganizationService.updateMonitoringChart(id, updateData);
+	.put("/charts/:id", async (context: any) => {
+		return await OrganizationService.updateMonitoringChart(context.params.id, context.body);
 	}, {
 		auth: true,
-		params: t.Object({
-			id: t.Numeric({ description: "Chart ID" })
-		}, { description: "Chart identifier" }),
-		body: monitoringModels.UpdateMonitoringChart,
+		params: t.Object({ id: t.Numeric() }),
+		body: t.Object({
+			name: t.Optional(t.String()),
+			description: t.Optional(t.String()),
+			chartType: t.Optional(t.String()),
+			config: t.Optional(t.Any()),
+			organizationId: t.String()
+		}),
 		response: {
-			200: monitoringModels.MonitoringChartArray,
-			400: commonModels.Error,
-			401: commonModels.Error,
-			404: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				name: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				chartType: t.String(),
+				config: t.Any(),
+				organizationId: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Update a monitoring chart",
 			description: "Update an existing monitoring chart",
 		}
 	})
-	.delete("/charts/:id", async ({ params, query }) => {
-		// Better Auth handles authorization through session context
-		return await OrganizationService.deleteMonitoringChart(params.id);
+	.delete("/charts/:id", async (context: any) => {
+		return await OrganizationService.deleteMonitoringChart(context.params.id);
 	}, {
 		auth: true,
-		params: t.Object({
-			id: t.Numeric({ description: "Chart ID" })
-		}, { description: "Chart identifier" }),
-		query: t.Object({
-			organizationId: t.String({ description: "Organization ID" })
-		}, { description: "Organization identifier" }),
+		params: t.Object({ id: t.Numeric() }),
 		response: {
-			200: monitoringModels.MonitoringChartArray,
-			401: commonModels.Error,
-			404: commonModels.Error
+			200: t.Array(t.Object({
+				id: t.Number(),
+				name: t.String(),
+				description: t.Union([t.String(), t.Null()]),
+				chartType: t.String(),
+				config: t.Any(),
+				organizationId: t.String(),
+				status: t.Boolean(),
+				createdAt: t.Date(),
+				updatedAt: t.Date()
+			})),
+			...commonErrors
 		},
 		detail: {
 			summary: "Delete a monitoring chart",
