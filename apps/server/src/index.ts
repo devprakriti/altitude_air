@@ -7,6 +7,8 @@ import { todoRouter } from "./routers/todo";
 import { monitoringRouter } from "./routers/monitoring";
 import { manualsRouter } from "./routers/manuals";
 import { filesRouter } from "./routers/files";
+import { dailyLogRouter } from "./routers/dailyLog";
+import { inspectionRouter } from "./routers/inspection";
 import { fromTypes } from '@elysiajs/openapi/gen'
 import { helmet } from 'elysia-helmet';
 
@@ -41,6 +43,8 @@ const app = new Elysia()
         { name: "Monitoring", description: "Monitoring charts and analytics endpoints" },
         { name: "Manuals", description: "Company manual management endpoints" },
         { name: "Files", description: "File upload, download, and management endpoints" },
+        { name: "Daily Logs", description: "Aircraft daily log management endpoints" },
+        { name: "Inspections", description: "Out-of-phase inspection management endpoints" },
         { name: "Auth", description: "Authentication and authorization endpoints" },
       ],
       components: await OpenAPI.components,
@@ -53,6 +57,8 @@ const app = new Elysia()
   .use(monitoringRouter)
   .use(manualsRouter)
   .use(filesRouter)
+  .use(dailyLogRouter)
+  .use(inspectionRouter)
   .get("/health", () => "OK")
   .get("/", () => "OK")
   .listen(3000, () => {
