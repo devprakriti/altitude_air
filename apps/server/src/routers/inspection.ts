@@ -1,9 +1,10 @@
 import { Elysia, t } from "elysia";
-import { eq, and, desc, count, gte, lte, like } from "drizzle-orm";
+import { eq, and, desc, count, gte, lte, like, sql } from "drizzle-orm";
 import { db } from "../db";
 import { outOfPhaseInspection, aircraftMaintenanceProgram } from "../db/schema/inspection";
 import { commonErrors } from "../lib/error-handler";
 import { authPlugin } from "../lib/auth";
+import { buildSearchConditions, buildDateRangeConditions } from "../lib/query-optimizer";
 
 export const inspectionRouter = new Elysia({ 
 	prefix: "/inspections",
@@ -25,27 +26,34 @@ export const inspectionRouter = new Elysia({
 			whereConditions.push(like(aircraftMaintenanceProgram.programName, `%${search}%`));
 		}
 
-		// Get total count
-		const [totalCountResult] = await db
-			.select({ count: count() })
-			.from(aircraftMaintenanceProgram)
-			.where(and(...whereConditions));
-		
-		const totalCount = totalCountResult.count;
-		const totalPages = Math.ceil(totalCount / limit);
-
-		// Get paginated results
+		// Optimized single query with window function
 		const programs = await db
-			.select()
+			.select({
+				id: aircraftMaintenanceProgram.id,
+				aircraftId: aircraftMaintenanceProgram.aircraftId,
+				programName: aircraftMaintenanceProgram.programName,
+				description: aircraftMaintenanceProgram.description,
+				organizationId: aircraftMaintenanceProgram.organizationId,
+				status: aircraftMaintenanceProgram.status,
+				createdAt: aircraftMaintenanceProgram.createdAt,
+				updatedAt: aircraftMaintenanceProgram.updatedAt,
+				totalCount: sql<number>`count(*) over()`
+			})
 			.from(aircraftMaintenanceProgram)
 			.where(and(...whereConditions))
 			.orderBy(desc(aircraftMaintenanceProgram.createdAt))
 			.limit(limit)
 			.offset(offset);
 
+		const totalCount = programs.length > 0 ? programs[0].totalCount : 0;
+		const totalPages = Math.ceil(totalCount / limit);
+
+		// Remove totalCount from data
+		const cleanPrograms = programs.map(({ totalCount, ...program }) => program);
+
 		return {
 			success: true,
-			programs,
+			programs: cleanPrograms,
 			totalCount,
 			totalPages
 		};
@@ -129,55 +137,63 @@ export const inspectionRouter = new Elysia({
 	// Out of Phase Inspection endpoints
 	.get("/", async ({ query, user, session }) => {
 		const { programId, inspection, dateFrom, dateTo, page = 1, pageSize = 10 } = query;
-		const limit = parseInt(pageSize.toString());
-		const offset = (parseInt(page.toString()) - 1) * limit;
 
-		// Build where conditions
+		// Build optimized where conditions
 		const whereConditions = [eq(outOfPhaseInspection.organizationId, session.activeOrganizationId || 'default')];
 		
 		if (programId) {
 			whereConditions.push(eq(outOfPhaseInspection.programId, Number(programId)));
 		}
 		
+		// Add search conditions
 		if (inspection) {
-			whereConditions.push(like(outOfPhaseInspection.inspection, `%${inspection}%`));
+			whereConditions.push(...buildSearchConditions(['inspection'], inspection));
 		}
 		
-		if (dateFrom) {
-			whereConditions.push(gte(outOfPhaseInspection.inspectionDueDate, dateFrom));
-		}
-		
-		if (dateTo) {
-			whereConditions.push(lte(outOfPhaseInspection.inspectionDueDate, dateTo));
-		}
+		// Add date range conditions
+		whereConditions.push(...buildDateRangeConditions('inspection_due_date', dateFrom, dateTo));
 
-		// Get total count
-		const [totalCountResult] = await db
-			.select({ count: count() })
-			.from(outOfPhaseInspection)
-			.where(and(...whereConditions));
-		
-		const totalCount = totalCountResult.count;
-		const totalPages = Math.ceil(totalCount / limit);
-
-		// Get paginated results with program details
-		const inspections = await db
+		// Optimized query with join and pagination
+		const inspectionQuery = db
 			.select({
 				inspection: outOfPhaseInspection,
-				program: aircraftMaintenanceProgram
+				program: aircraftMaintenanceProgram,
+				totalCount: sql<number>`count(*) over()`
 			})
 			.from(outOfPhaseInspection)
 			.leftJoin(aircraftMaintenanceProgram, eq(outOfPhaseInspection.programId, aircraftMaintenanceProgram.id))
 			.where(and(...whereConditions))
-			.orderBy(desc(outOfPhaseInspection.inspectionDueDate), desc(outOfPhaseInspection.createdAt))
-			.limit(limit)
-			.offset(offset);
+			.orderBy(sql`${outOfPhaseInspection.inspectionDueDate} DESC, ${outOfPhaseInspection.createdAt} DESC`)
+			.limit(Math.min(parseInt(pageSize.toString()), 100))
+			.offset((parseInt(page.toString()) - 1) * parseInt(pageSize.toString()));
+
+		const results = await inspectionQuery;
+
+		if (!results.length) {
+			return {
+				success: true,
+				list: [],
+				totalCount: 0,
+				totalPages: 0,
+				hasNextPage: false
+			};
+		}
+
+		const totalCount = results[0].totalCount;
+		const limit = parseInt(pageSize.toString());
+		const totalPages = Math.ceil(totalCount / limit);
+		const hasNextPage = parseInt(page.toString()) < totalPages;
+
+		// Remove totalCount from data
+		const list = results.map(({ totalCount, ...item }) => item);
 
 		return {
 			success: true,
-			list: inspections,
+			list,
 			totalCount,
-			totalPages
+			totalPages,
+			hasNextPage,
+			nextCursor: hasNextPage ? (parseInt(page.toString()) + 1).toString() : undefined
 		};
 	}, {
 		auth: true,

@@ -29,8 +29,13 @@ export const todoRouter = new Elysia({
 			description: "Retrieve a list of all todos in the system. Requires authentication.",
 		}
 	})
-	.post("/", async ({ body }) => {
-		return await db.insert(todo).values({ text: body.text }).returning();
+	.post("/", async ({ body, user }) => {
+		const result = await db.insert(todo).values({ text: body.text, user: user.id }).returning();
+		// ensure user is always string, never null
+		return result.map(({ user, ...rest }) => ({
+			...rest,
+			user: user ?? ""
+		}));
 	}, {
 		auth: true,
 		body: t.Object({ text: t.String() }),
@@ -38,7 +43,8 @@ export const todoRouter = new Elysia({
 			200: t.Array(t.Object({
 				id: t.Number(),
 				text: t.String(),
-				completed: t.Boolean()
+				completed: t.Boolean(),
+				user: t.String()
 			})),
 			...commonErrors
 		},

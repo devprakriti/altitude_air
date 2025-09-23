@@ -1,9 +1,10 @@
 import { Elysia, t } from "elysia";
-import { eq, and, desc, count, gte, lte, like } from "drizzle-orm";
+import { eq, and, desc, count, gte, lte, like, sql } from "drizzle-orm";
 import { db } from "../db";
 import { dailyLog } from "../db/schema/dailyLog";
 import { commonErrors } from "../lib/error-handler";
 import { authPlugin } from "../lib/auth";
+import { buildSearchConditions, buildDateRangeConditions } from "../lib/query-optimizer";
 
 export const dailyLogRouter = new Elysia({ 
 	prefix: "/daily-logs",
@@ -14,45 +15,62 @@ export const dailyLogRouter = new Elysia({
 	.use(authPlugin)
 	.get("/", async ({ query, user, session }) => {
 		const { tlpNo, dateFrom, dateTo, page = 1, pageSize = 10 } = query;
-		const limit = parseInt(pageSize.toString());
-		const offset = (parseInt(page.toString()) - 1) * limit;
 
-		// Build where conditions
+		// Build optimized where conditions
 		const whereConditions = [eq(dailyLog.organizationId, session.activeOrganizationId || 'default')];
 		
+		// Add search conditions
 		if (tlpNo) {
-			whereConditions.push(like(dailyLog.tlpNo, `%${tlpNo}%`));
+			whereConditions.push(...buildSearchConditions(['tlp_no'], tlpNo));
 		}
 		
-		if (dateFrom) {
-			whereConditions.push(gte(dailyLog.recordDate, dateFrom));
-		}
-		
-		if (dateTo) {
-			whereConditions.push(lte(dailyLog.recordDate, dateTo));
-		}
+		// Add date range conditions
+		whereConditions.push(...buildDateRangeConditions('record_date', dateFrom, dateTo));
 
-		// Get total count
-		const [totalCountResult] = await db
-			.select({ count: count() })
-			.from(dailyLog)
-			.where(and(...whereConditions));
-		
-		const totalCount = totalCountResult.count;
-		const totalPages = Math.ceil(totalCount / limit);
-
-		// Get paginated results
+		// Optimized single query with window function
 		const logs = await db
-			.select()
+			.select({
+				id: dailyLog.id,
+				recordDate: dailyLog.recordDate,
+				tlpNo: dailyLog.tlpNo,
+				hoursFlownAirframe: dailyLog.hoursFlownAirframe,
+				hoursFlownEngine: dailyLog.hoursFlownEngine,
+				landings: dailyLog.landings,
+				tc: dailyLog.tc,
+				noOfStarts: dailyLog.noOfStarts,
+				ggCycle: dailyLog.ggCycle,
+				ftCycle: dailyLog.ftCycle,
+				usage: dailyLog.usage,
+				totalAirframeHr: dailyLog.totalAirframeHr,
+				totalEngineHrTsn: dailyLog.totalEngineHrTsn,
+				totalLandings: dailyLog.totalLandings,
+				totalTc: dailyLog.totalTc,
+				totalNoOfStarts: dailyLog.totalNoOfStarts,
+				totalGgCycleTsn: dailyLog.totalGgCycleTsn,
+				totalFtCycleTsn: dailyLog.totalFtCycleTsn,
+				remarks: dailyLog.remarks,
+				organizationId: dailyLog.organizationId,
+				createdBy: dailyLog.createdBy,
+				status: dailyLog.status,
+				createdAt: dailyLog.createdAt,
+				updatedAt: dailyLog.updatedAt,
+				totalCount: sql<number>`count(*) over()`
+			})
 			.from(dailyLog)
 			.where(and(...whereConditions))
 			.orderBy(desc(dailyLog.recordDate), desc(dailyLog.createdAt))
-			.limit(limit)
-			.offset(offset);
+			.limit(parseInt(pageSize.toString()))
+			.offset((parseInt(page.toString()) - 1) * parseInt(pageSize.toString()));
+
+		const totalCount = logs.length > 0 ? logs[0].totalCount : 0;
+		const totalPages = Math.ceil(totalCount / parseInt(pageSize.toString()));
+
+		// Remove totalCount from data
+		const cleanLogs = logs.map(({ totalCount, ...log }) => log);
 
 		return {
 			success: true,
-			list: logs,
+			list: cleanLogs,
 			totalCount,
 			totalPages
 		};

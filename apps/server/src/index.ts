@@ -11,6 +11,8 @@ import { dailyLogRouter } from "./routers/dailyLog";
 import { inspectionRouter } from "./routers/inspection";
 import { fromTypes } from '@elysiajs/openapi/gen'
 import { helmet } from 'elysia-helmet';
+import { createGlobalErrorHandler, createValidationMiddleware, createRateLimitMiddleware } from "./lib/error-handler";
+import { performHealthCheck, performSimpleHealthCheck } from "./lib/health-check";
 
 const app = new Elysia()
   .use(cors({
@@ -19,6 +21,9 @@ const app = new Elysia()
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }))
+  .use(createRateLimitMiddleware(100, 60000)) // 100 requests per minute
+  .use(createValidationMiddleware())
+  .use(createGlobalErrorHandler())
   .use(openapi({
     references: fromTypes(
       process.env.NODE_ENV === 'production'
@@ -59,8 +64,47 @@ const app = new Elysia()
   .use(filesRouter)
   .use(dailyLogRouter)
   .use(inspectionRouter)
-  .get("/health", () => "OK")
-  .get("/", () => "OK")
+  .get("/health", async ({ set }) => {
+    const health = await performHealthCheck();
+    
+    // Set appropriate status code based on health
+    if (health.status === 'unhealthy') {
+      set.status = 503; // Service Unavailable
+    } else if (health.status === 'degraded') {
+      set.status = 200; // OK but with warnings
+    } else {
+      set.status = 200; // OK
+    }
+    
+    return health;
+  }, {
+    detail: {
+      tags: ["Health"],
+      summary: "Comprehensive health check",
+      description: "Check the health status of all services and dependencies"
+    }
+  })
+  .get("/health/simple", async ({ set }) => {
+    const health = await performSimpleHealthCheck();
+    
+    if (health.status === 'error') {
+      set.status = 503;
+    }
+    
+    return health;
+  }, {
+    detail: {
+      tags: ["Health"],
+      summary: "Simple health check",
+      description: "Basic health check for load balancers"
+    }
+  })
+  .get("/", () => ({
+    message: "Heli API Server",
+    version: "1.0.0",
+    status: "running",
+    timestamp: new Date().toISOString()
+  }))
   .listen(3000, () => {
     console.log(`Let's go! 🚁`);
   });

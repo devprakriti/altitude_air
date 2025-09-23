@@ -1,29 +1,42 @@
 import { Elysia, t } from "elysia";
-import { s3Client, generateFileKey, getFileExtension, getMimeType } from "../lib/s3";
+import { s3Client, getMimeType } from "../lib/s3";
 import { authPlugin } from "../lib/auth";
+import { validateFile, generateSecureFileKey, sanitizeFilename } from "../lib/file-security";
+import { checkFileAccessControl, validateFileKey } from "../lib/access-control";
 
 export const filesRouter = new Elysia({ prefix: "/files" })
 	.use(authPlugin)
   .post(
     "/upload",
-    async ({ body, user }) => {
+    async ({ body, user, set }) => {
       try {
         const { file, filename } = body as { file: File; filename: string };
         
         if (!file || !filename) {
+          set.status = 400;
           return {
             success: false,
             error: "File and filename are required"
           };
         }
 
-        const fileKey = generateFileKey(user.id, filename);
-        const extension = getFileExtension(filename);
-        const mimeType = getMimeType(extension);
+        // Validate file security
+        const validation = await validateFile(file);
+        if (!validation.isValid) {
+          set.status = 400;
+          return {
+            success: false,
+            error: validation.error
+          };
+        }
+
+        // Generate secure file key
+        const sanitizedFilename = sanitizeFilename(filename);
+        const fileKey = generateSecureFileKey(user.id, sanitizedFilename);
 
         // Upload to S3
         await s3Client.write(fileKey, file, {
-          type: mimeType,
+          type: validation.mimeType || file.type,
           acl: "private"
         });
 
@@ -31,14 +44,16 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           success: true,
           data: {
             fileKey,
-            filename,
+            filename: sanitizedFilename,
+            originalFilename: filename,
             size: file.size,
-            mimeType,
+            mimeType: validation.mimeType,
             uploadedAt: new Date().toISOString()
           }
         };
       } catch (error) {
         console.error("Upload error:", error);
+        set.status = 500;
         return {
           success: false,
           error: "Failed to upload file"
@@ -60,7 +75,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
   )
   .get(
     "/download",
-    async ({ query, set }) => {
+    async ({ query, set, user, session }) => {
       try {
         const { fileKey } = query;
         
@@ -69,11 +84,17 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           return { success: false, error: "File key is required" };
         }
         
-        // Verify file exists and user has access
-        const exists = await s3Client.exists(fileKey);
-        if (!exists) {
-          set.status = 404;
-          return { success: false, error: "File not found" };
+        // Check access control
+        const accessCheck = await checkFileAccessControl(
+          fileKey,
+          user.id,
+          'read',
+          session.activeOrganizationId || undefined
+        );
+        
+        if (!accessCheck.hasAccess) {
+          set.status = 403;
+          return { success: false, error: accessCheck.error };
         }
 
         // Get file from S3
@@ -110,24 +131,29 @@ export const filesRouter = new Elysia({ prefix: "/files" })
   )
   .get(
     "/presign",
-    async ({ query }) => {
+    async ({ query, user, session, set }) => {
       try {
         const { fileKey, expiresIn = "3600" } = query;
 
         if (!fileKey) {
+          set.status = 400;
           return {
             success: false,
             error: "File key is required"
           };
         }
 
-        // Verify file exists
-        const exists = await s3Client.exists(fileKey);
-        if (!exists) {
-          return {
-            success: false,
-            error: "File not found"
-          };
+        // Check access control
+        const accessCheck = await checkFileAccessControl(
+          fileKey,
+          user.id,
+          'read',
+          session.activeOrganizationId || undefined
+        );
+        
+        if (!accessCheck.hasAccess) {
+          set.status = 403;
+          return { success: false, error: accessCheck.error };
         }
 
         // Generate presigned URL
@@ -147,6 +173,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         };
       } catch (error) {
         console.error("Presign error:", error);
+        set.status = 500;
         return {
           success: false,
           error: "Failed to generate presigned URL"
@@ -168,9 +195,22 @@ export const filesRouter = new Elysia({ prefix: "/files" })
   )
   .get(
     "/list",
-    async ({ query, user }) => {
+    async ({ query, user, session, set }) => {
       try {
         const { prefix = `uploads/${user.id}/`, maxKeys = "100" } = query;
+
+        // Check access control for list operation
+        const accessCheck = await checkFileAccessControl(
+          prefix as string,
+          user.id,
+          'list',
+          session.activeOrganizationId || undefined
+        );
+        
+        if (!accessCheck.hasAccess) {
+          set.status = 403;
+          return { success: false, error: accessCheck.error };
+        }
 
         const result = await s3Client.list({
           prefix: prefix as string,
@@ -193,6 +233,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         };
       } catch (error) {
         console.error("List files error:", error);
+        set.status = 500;
         return {
           success: false,
           error: "Failed to list files"
@@ -214,24 +255,29 @@ export const filesRouter = new Elysia({ prefix: "/files" })
   )
   .delete(
     "/",
-    async ({ query }) => {
+    async ({ query, user, session, set }) => {
       try {
         const { fileKey } = query;
 
         if (!fileKey) {
+          set.status = 400;
           return {
             success: false,
             error: "File key is required"
           };
         }
 
-        // Verify file exists and belongs to user
-        const exists = await s3Client.exists(fileKey);
-        if (!exists) {
-          return {
-            success: false,
-            error: "File not found"
-          };
+        // Check access control
+        const accessCheck = await checkFileAccessControl(
+          fileKey,
+          user.id,
+          'delete',
+          session.activeOrganizationId || undefined
+        );
+        
+        if (!accessCheck.hasAccess) {
+          set.status = 403;
+          return { success: false, error: accessCheck.error };
         }
 
         // Delete file from S3
@@ -243,6 +289,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         };
       } catch (error) {
         console.error("Delete error:", error);
+        set.status = 500;
         return {
           success: false,
           error: "Failed to delete file"
