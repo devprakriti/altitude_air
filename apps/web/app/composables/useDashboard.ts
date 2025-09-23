@@ -6,6 +6,8 @@ const _useDashboard = () => {
 
   defineShortcuts({
     'g-h': () => navigateTo('/'),
+    'g-t': () => navigateTo('/todos'),
+    'g-d': () => navigateTo('/daily-logs'),
     'g-i': () => navigateTo('/inbox'),
     'g-c': () => navigateTo('/customers'),
     'g-s': () => navigateTo('/settings'),

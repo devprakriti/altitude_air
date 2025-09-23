@@ -62,7 +62,7 @@ export const dailyLogRouter = new Elysia({
 			.limit(parseInt(pageSize.toString()))
 			.offset((parseInt(page.toString()) - 1) * parseInt(pageSize.toString()));
 
-		const totalCount = logs.length > 0 ? logs[0].totalCount : 0;
+		const totalCount = logs.length > 0 ? Number(logs[0].totalCount) : 0;
 		const totalPages = Math.ceil(totalCount / parseInt(pageSize.toString()));
 
 		// Remove totalCount from data

@@ -25,6 +25,14 @@ const baseLinks = [
     },
   },
   {
+    label: "Daily Logs",
+    icon: "i-lucide-clipboard-list",
+    to: "/daily-logs",
+    onSelect: () => {
+      open.value = false;
+    },
+  },
+  {
     label: "Inbox",
     icon: "i-lucide-inbox",
     to: "/inbox",
@@ -100,12 +108,7 @@ const footerLinks = [
 ];
 
 const links = computed(() => {
-  const mainLinks = [...baseLinks];
-
-  // Add settings
-  mainLinks.push(settingsLinks);
-
-  return [mainLinks, footerLinks];
+  return [baseLinks, [settingsLinks], footerLinks];
 }) satisfies ComputedRef<NavigationMenuItem[][]>;
 
 const groups = computed(() => [
