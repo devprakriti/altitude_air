@@ -1,4 +1,6 @@
 import { createAuthClient } from "better-auth/vue";
+import { admin, organization } from "better-auth/plugins";
+
 
 export default defineNuxtPlugin((nuxtApp) => {
 	const config = useRuntimeConfig();
@@ -6,6 +8,10 @@ export default defineNuxtPlugin((nuxtApp) => {
 
 	const authClient = createAuthClient({
 		baseURL: serverUrl,
+		plugins:[
+			admin(),
+			organization(),
+		]
 	});
 
 	return {

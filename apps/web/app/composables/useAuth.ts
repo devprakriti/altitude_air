@@ -1,43 +1,44 @@
 export const useAuth = () => {
+	const authStore = useAuthStore();
+	const usersStore = useUsersStore();
+
+	// Initialize auth state on first use
+	if (!authStore.isAuthenticated && !authStore.isLoading) {
+		authStore.initializeAuth();
+	}
+
+	// Watch for session changes and update store
 	const { $authClient } = useNuxtApp();
 	const session = $authClient.useSession();
 
-	const user = computed(() => session.value.data?.user);
-	const isAuthenticated = computed(() => !!session.value.data);
-	const isLoading = computed(() => session.value.isPending);
-
-	const signIn = async (email: string, password: string) => {
-		return await $authClient.signIn.email({
-			email,
-			password,
-		});
-	};
-
-	const signUp = async (name: string, email: string, password: string) => {
-		return await $authClient.signUp.email({
-			name,
-			email,
-			password,
-		});
-	};
-
-	const signOut = async () => {
-		await $authClient.signOut();
-		await navigateTo('/login');
-	};
-
-	const updateProfile = async (data: { name?: string; image?: string }) => {
-		return await $authClient.updateUser(data);
-	};
+	watchEffect(() => {
+		if (!session.value.isPending && session.value.data) {
+			authStore.setAuthData(session.value.data.user, session.value.data.session);
+		} else if (!session.value.isPending && !session.value.data) {
+			authStore.clearAuth();
+		}
+	});
 
 	return {
-		user,
-		isAuthenticated,
-		isLoading,
-		session,
-		signIn,
-		signUp,
-		signOut,
-		updateProfile,
+		// Auth state
+		user: computed(() => authStore.user),
+		isAuthenticated: computed(() => authStore.isAuthenticated),
+		isLoading: computed(() => authStore.isLoading),
+		isAdmin: computed(() => authStore.isAdmin),
+		isUser: computed(() => authStore.isUser),
+		error: computed(() => authStore.error),
+		session: computed(() => authStore.session),
+
+		// Auth actions
+		signIn: authStore.signIn,
+		signOut: authStore.signOut,
+		updateProfile: authStore.updateProfile,
+
+		// Admin functions (delegated to users store)
+		createUser: usersStore.createUser,
+		updateUser: usersStore.updateUserData,
+		deleteUser: usersStore.deleteUser,
+		listUsers: usersStore.fetchUsers,
+		getUser: usersStore.getUser,
 	};
 };

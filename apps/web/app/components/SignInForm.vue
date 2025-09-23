@@ -2,8 +2,7 @@
 import z from "zod";
 import type { FormSubmitEvent } from "#ui/types";
 
-const emit = defineEmits(["switchToSignUp"]);
-const { signIn } = useAuth();
+const authStore = useAuthStore();
 
 const toast = useToast();
 const loading = ref(false);
@@ -23,13 +22,17 @@ const state = reactive({
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true;
   try {
-    const result = await signIn(event.data.email, event.data.password);
+    const result = await authStore.signIn(
+      event.data.email,
+      event.data.password
+    );
 
-    if (result.error) {
+    if (!result.success && result.error) {
       toast.add({ title: "Sign in failed", description: result.error.message });
     } else {
       toast.add({ title: "Sign in successful" });
-      await navigateTo("/dashboard", { replace: true });
+      await nextTick();
+      await navigateTo("/");
     }
   } catch (error: any) {
     toast.add({
@@ -58,14 +61,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       <UButton type="submit" block :loading="loading"> Sign In </UButton>
     </UForm>
 
-    <div class="mt-4 text-center">
-      <UButton
-        variant="link"
-        @click="$emit('switchToSignUp')"
-        class="text-primary hover:text-primary-dark"
-      >
-        Need an account? Sign Up
-      </UButton>
-    </div>
+    <UAlert
+      color="neutral"
+      variant="subtle"
+      title="Register?"
+      description="Contact your administrator to create an account."
+      icon="i-lucide-terminal"
+      class="mt-4"
+    />
   </div>
 </template>

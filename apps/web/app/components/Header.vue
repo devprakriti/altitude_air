@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import ModeToggle from './ModeToggle.vue'
-import UserMenu from './UserMenu.vue'
+import ModeToggle from "./ModeToggle.vue";
+import UserMenu from "./UserMenu.vue";
 
 const links = [
-    { to: "/", label: "Home" },
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/todos", label: "Todos" },
+  { to: "/", label: "Home" },
+  { to: "/todos", label: "Todos" },
 ];
 </script>
 

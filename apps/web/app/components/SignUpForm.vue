@@ -35,7 +35,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       toast.add({ title: "Sign up failed", description: result.error.message });
     } else {
       toast.add({ title: "Sign up successful" });
-      await navigateTo("/dashboard", { replace: true });
+      await navigateTo("/", { replace: true });
     }
   } catch (error: any) {
     toast.add({

@@ -138,7 +138,7 @@ async function onSubmit(event: FormSubmitEvent<PasswordSchema>) {
       </UFormField>
     </UPageCard>
 
-    <UPageCard variant="subtle" class="mt-6">
+    <!-- <UPageCard variant="subtle" class="mt-6">
       <div class="flex items-start gap-3">
         <UIcon name="i-lucide-shield-alert" class="text-orange-500 mt-0.5" />
         <div>
@@ -159,9 +159,9 @@ async function onSubmit(event: FormSubmitEvent<PasswordSchema>) {
           />
         </div>
       </div>
-    </UPageCard>
+    </UPageCard> -->
 
-    <UPageCard variant="subtle" class="mt-6">
+    <!-- <UPageCard variant="subtle" class="mt-6">
       <div class="flex items-start gap-3">
         <UIcon name="i-lucide-monitor" class="text-blue-500 mt-0.5" />
         <div>
@@ -181,6 +181,6 @@ async function onSubmit(event: FormSubmitEvent<PasswordSchema>) {
           />
         </div>
       </div>
-    </UPageCard>
+    </UPageCard> -->
   </UForm>
 </template>

@@ -3,120 +3,116 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 
 const route = useRoute();
 const toast = useToast();
+const authStore = useAuthStore();
 
 const open = ref(false);
 
-const links = [
-  [
-    {
-      label: "Home",
-      icon: "i-lucide-house",
-      to: "/",
-      onSelect: () => {
-        open.value = false;
-      },
+const baseLinks = [
+  {
+    label: "Home",
+    icon: "i-lucide-house",
+    to: "/",
+    onSelect: () => {
+      open.value = false;
     },
-    {
-      label: "Dashboard",
-      icon: "i-lucide-layout-dashboard",
-      to: "/dashboard",
-      onSelect: () => {
-        open.value = false;
-      },
+  },
+  {
+    label: "Todos",
+    icon: "i-lucide-check-square",
+    to: "/todos",
+    onSelect: () => {
+      open.value = false;
     },
-    {
-      label: "Todos",
-      icon: "i-lucide-check-square",
-      to: "/todos",
-      onSelect: () => {
-        open.value = false;
-      },
+  },
+  {
+    label: "Inbox",
+    icon: "i-lucide-inbox",
+    to: "/inbox",
+    badge: "4",
+    onSelect: () => {
+      open.value = false;
     },
-    {
-      label: "Inbox",
-      icon: "i-lucide-inbox",
-      to: "/inbox",
-      badge: "4",
-      onSelect: () => {
-        open.value = false;
-      },
+  },
+  {
+    label: "Customers",
+    icon: "i-lucide-users",
+    to: "/customers",
+    onSelect: () => {
+      open.value = false;
     },
+  },
+];
+
+// Admin functionality is now integrated into settings/members
+
+const settingsLinks = {
+  label: "Settings",
+  to: "/settings",
+  icon: "i-lucide-settings",
+  defaultOpen: true,
+  type: "trigger" as const,
+  children: [
     {
-      label: "Customers",
-      icon: "i-lucide-users",
-      to: "/customers",
-      onSelect: () => {
-        open.value = false;
-      },
-    },
-    {
-      label: "Settings",
+      label: "General",
       to: "/settings",
-      icon: "i-lucide-settings",
-      defaultOpen: true,
-      type: "trigger",
-      children: [
-        {
-          label: "General",
-          to: "/settings",
-          exact: true,
-          onSelect: () => {
-            open.value = false;
-          },
-        },
-        {
-          label: "Members",
-          to: "/settings/members",
-          onSelect: () => {
-            open.value = false;
-          },
-        },
-        {
-          label: "Notifications",
-          to: "/settings/notifications",
-          onSelect: () => {
-            open.value = false;
-          },
-        },
-        {
-          label: "Security",
-          to: "/settings/security",
-          onSelect: () => {
-            open.value = false;
-          },
-        },
-      ],
-    },
-  ],
-  [
-    {
-      label: "Login",
-      icon: "i-lucide-log-in",
-      to: "/login",
+      exact: true,
       onSelect: () => {
         open.value = false;
       },
     },
     {
-      label: "Feedback",
-      icon: "i-lucide-message-circle",
-      to: "https://github.com/nuxt-ui-templates/dashboard",
-      target: "_blank",
+      label: "Members",
+      to: "/settings/members",
+      onSelect: () => {
+        open.value = false;
+      },
     },
     {
-      label: "Help & Support",
-      icon: "i-lucide-info",
-      to: "https://github.com/nuxt-ui-templates/dashboard",
-      target: "_blank",
+      label: "Notifications",
+      to: "/settings/notifications",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Security",
+      to: "/settings/security",
+      onSelect: () => {
+        open.value = false;
+      },
     },
   ],
-] satisfies NavigationMenuItem[][];
+};
+
+const footerLinks = [
+  {
+    label: "Feedback",
+    icon: "i-lucide-message-circle",
+    to: "https://github.com/nuxt-ui-templates/dashboard",
+    target: "_blank",
+  },
+  {
+    label: "Help & Support",
+    icon: "i-lucide-info",
+    to: "https://github.com/nuxt-ui-templates/dashboard",
+    target: "_blank",
+  },
+];
+
+const links = computed(() => {
+  const mainLinks = [...baseLinks];
+
+  // Add settings
+  mainLinks.push(settingsLinks);
+
+  return [mainLinks, footerLinks];
+}) satisfies ComputedRef<NavigationMenuItem[][]>;
 
 const groups = computed(() => [
   {
     id: "links",
     label: "Go to",
-    items: links.flat(),
+    items: links.value.flat(),
   },
   {
     id: "code",
@@ -141,27 +137,27 @@ onMounted(async () => {
     return;
   }
 
-  toast.add({
-    title:
-      "We use first-party cookies to enhance your experience on our website.",
-    duration: 0,
-    close: false,
-    actions: [
-      {
-        label: "Accept",
-        color: "neutral",
-        variant: "outline",
-        onClick: () => {
-          cookie.value = "accepted";
-        },
-      },
-      {
-        label: "Opt out",
-        color: "neutral",
-        variant: "ghost",
-      },
-    ],
-  });
+  // toast.add({
+  //   title:
+  //     "We use first-party cookies to enhance your experience on our website.",
+  //   duration: 0,
+  //   close: false,
+  //   actions: [
+  //     {
+  //       label: "Accept",
+  //       color: "neutral",
+  //       variant: "outline",
+  //       onClick: () => {
+  //         cookie.value = "accepted";
+  //       },
+  //     },
+  //     {
+  //       label: "Opt out",
+  //       color: "neutral",
+  //       variant: "ghost",
+  //     },
+  //   ],
+  // });
 });
 </script>
 
