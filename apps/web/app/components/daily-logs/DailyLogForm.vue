@@ -2,6 +2,7 @@
 import type { DailyLog, CreateDailyLogData } from "~/composables/useDailyLogs";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { z } from "zod";
+import { vMaska } from "maska/vue";
 import {
   CalendarDate,
   DateFormatter,
@@ -29,12 +30,18 @@ const schema = z.object({
   tlpNo: z.string().min(1, "TLP No is required"),
   hoursFlownAirframe: z
     .string()
-    .regex(/^\d*\.?\d*$/, "Must be a valid decimal number")
+    .regex(
+      /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+      "Must be in HH:MM format (e.g., 03:15)"
+    )
     .optional()
     .or(z.literal("")),
   hoursFlownEngine: z
     .string()
-    .regex(/^\d*\.?\d*$/, "Must be a valid decimal number")
+    .regex(
+      /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+      "Must be in HH:MM format (e.g., 03:15)"
+    )
     .optional()
     .or(z.literal("")),
   landings: z.number().optional(),
@@ -43,21 +50,6 @@ const schema = z.object({
   ggCycle: z.number().optional(),
   ftCycle: z.number().optional(),
   usage: z.string().optional(),
-  totalAirframeHr: z
-    .string()
-    .regex(/^\d*\.?\d*$/, "Must be a valid decimal number")
-    .optional()
-    .or(z.literal("")),
-  totalEngineHrTsn: z
-    .string()
-    .regex(/^\d*\.?\d*$/, "Must be a valid decimal number")
-    .optional()
-    .or(z.literal("")),
-  totalLandings: z.number().optional(),
-  totalTc: z.number().optional(),
-  totalNoOfStarts: z.number().optional(),
-  totalGgCycleTsn: z.number().optional(),
-  totalFtCycleTsn: z.number().optional(),
   remarks: z.string().optional(),
 });
 
@@ -86,13 +78,6 @@ const state = reactive<Partial<Schema>>({
   ggCycle: undefined,
   ftCycle: undefined,
   usage: undefined,
-  totalAirframeHr: undefined,
-  totalEngineHrTsn: undefined,
-  totalLandings: undefined,
-  totalTc: undefined,
-  totalNoOfStarts: undefined,
-  totalGgCycleTsn: undefined,
-  totalFtCycleTsn: undefined,
   remarks: undefined,
 });
 
@@ -155,13 +140,6 @@ const resetForm = () => {
     ggCycle: undefined,
     ftCycle: undefined,
     usage: undefined,
-    totalAirframeHr: undefined,
-    totalEngineHrTsn: undefined,
-    totalLandings: undefined,
-    totalTc: undefined,
-    totalNoOfStarts: undefined,
-    totalGgCycleTsn: undefined,
-    totalFtCycleTsn: undefined,
     remarks: undefined,
   });
 };
@@ -179,13 +157,6 @@ const populateForm = () => {
       ggCycle: props.log.ggCycle || undefined,
       ftCycle: props.log.ftCycle || undefined,
       usage: props.log.usage || undefined,
-      totalAirframeHr: props.log.totalAirframeHr || undefined,
-      totalEngineHrTsn: props.log.totalEngineHrTsn || undefined,
-      totalLandings: props.log.totalLandings || undefined,
-      totalTc: props.log.totalTc || undefined,
-      totalNoOfStarts: props.log.totalNoOfStarts || undefined,
-      totalGgCycleTsn: props.log.totalGgCycleTsn || undefined,
-      totalFtCycleTsn: props.log.totalFtCycleTsn || undefined,
       remarks: props.log.remarks || undefined,
     });
   } else {
@@ -207,14 +178,6 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
           ? event.data.hoursFlownEngine
           : undefined,
       usage: event.data.usage || undefined,
-      totalAirframeHr:
-        event.data.totalAirframeHr && event.data.totalAirframeHr.trim() !== ""
-          ? event.data.totalAirframeHr
-          : undefined,
-      totalEngineHrTsn:
-        event.data.totalEngineHrTsn && event.data.totalEngineHrTsn.trim() !== ""
-          ? event.data.totalEngineHrTsn
-          : undefined,
       remarks: event.data.remarks || undefined,
     };
 
@@ -267,8 +230,6 @@ onMounted(() => {
       >
         <!-- Basic Information -->
         <div class="space-y-4">
-          <h4 class="text-md font-medium text-gray-900">Basic Information</h4>
-
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <UFormField label="Record Date" name="recordDate" required>
               <UPopover>
@@ -319,46 +280,27 @@ onMounted(() => {
         <div class="space-y-4">
           <h4 class="text-md font-medium text-gray-900">Flight Hours</h4>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <UFormField
               label="Hours Flown (Airframe)"
               name="hoursFlownAirframe"
             >
               <UInput
                 v-model="state.hoursFlownAirframe"
-                placeholder="0.0"
+                v-maska="'##:##'"
+                placeholder="HH:MM"
                 type="text"
-                class="w-full"
+                class="w-full font-mono"
               />
             </UFormField>
 
             <UFormField label="Hours Flown (Engine)" name="hoursFlownEngine">
               <UInput
                 v-model="state.hoursFlownEngine"
-                placeholder="0.0"
+                v-maska="'##:##'"
+                placeholder="HH:MM"
                 type="text"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Total Airframe Hours" name="totalAirframeHr">
-              <UInput
-                v-model="state.totalAirframeHr"
-                placeholder="0.0"
-                type="text"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField
-              label="Total Engine Hours (TSN)"
-              name="totalEngineHrTsn"
-            >
-              <UInput
-                v-model="state.totalEngineHrTsn"
-                placeholder="0.0"
-                type="text"
-                class="w-full"
+                class="w-full font-mono"
               />
             </UFormField>
           </div>
@@ -413,48 +355,11 @@ onMounted(() => {
                 class="w-full"
               />
             </UFormField>
-
-            <UFormField label="Total Landings" name="totalLandings">
+            <UFormField label="Usage" name="usage">
               <UInput
-                v-model="state.totalLandings"
-                placeholder="0"
-                type="number"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Total TC" name="totalTc">
-              <UInput
-                v-model="state.totalTc"
-                placeholder="0"
-                type="number"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Total Number of Starts" name="totalNoOfStarts">
-              <UInput
-                v-model="state.totalNoOfStarts"
-                placeholder="0"
-                type="number"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Total GG Cycle (TSN)" name="totalGgCycleTsn">
-              <UInput
-                v-model="state.totalGgCycleTsn"
-                placeholder="0"
-                type="number"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Total FT Cycle (TSN)" name="totalFtCycleTsn">
-              <UInput
-                v-model="state.totalFtCycleTsn"
-                placeholder="0"
-                type="number"
+                v-model="state.usage"
+                placeholder="0.0"
+                type="text"
                 class="w-full"
               />
             </UFormField>
@@ -463,29 +368,14 @@ onMounted(() => {
 
         <!-- Additional Information -->
         <div class="space-y-4">
-          <h4 class="text-md font-medium text-gray-900">
-            Additional Information
-          </h4>
-
-          <div class="grid grid-cols-1 gap-4">
-            <UFormField label="Usage" name="usage">
-              <UTextarea
-                v-model="state.usage"
-                placeholder="Describe the flight purpose or usage"
-                :rows="3"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Remarks" name="remarks">
-              <UTextarea
-                v-model="state.remarks"
-                placeholder="Any additional remarks or notes"
-                :rows="3"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
+          <UFormField label="Remarks" name="remarks">
+            <UTextarea
+              v-model="state.remarks"
+              placeholder="Any additional remarks or notes"
+              :rows="3"
+              class="w-full"
+            />
+          </UFormField>
         </div>
 
         <!-- Form Actions -->

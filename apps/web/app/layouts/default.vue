@@ -290,29 +290,6 @@ const fleetManagementLinks = {
   ],
 };
 
-const userManagementLinks = {
-  label: "User and Role Management",
-  icon: "i-lucide-users",
-  type: "trigger" as const,
-  defaultOpen: true,
-  children: [
-    {
-      label: "User Management",
-      to: "/user-management",
-      onSelect: () => {
-        open.value = false;
-      },
-    },
-    {
-      label: "Roles and Permissions",
-      to: "/roles-permissions",
-      onSelect: () => {
-        open.value = false;
-      },
-    },
-  ],
-};
-
 // Admin functionality is now integrated into settings/members
 
 const settingsSupportLinks = {
@@ -388,21 +365,6 @@ const settingsSupportLinks = {
   ],
 };
 
-const footerLinks = [
-  {
-    label: "Feedback",
-    icon: "i-lucide-message-circle",
-    to: "https://github.com/nuxt-ui-templates/dashboard",
-    target: "_blank",
-  },
-  {
-    label: "Help & Support",
-    icon: "i-lucide-info",
-    to: "https://github.com/nuxt-ui-templates/dashboard",
-    target: "_blank",
-  },
-];
-
 const links = computed(() => {
   return [
     [dashboardLinks],
@@ -410,9 +372,7 @@ const links = computed(() => {
     [technicalServicesLinks],
     [technicalLibraryLinks],
     [fleetManagementLinks],
-    [userManagementLinks],
     [settingsSupportLinks],
-    footerLinks,
   ];
 }) satisfies ComputedRef<NavigationMenuItem[][]>;
 
@@ -421,21 +381,6 @@ const groups = computed(() => [
     id: "links",
     label: "Go to",
     items: links.value.flat(),
-  },
-  {
-    id: "code",
-    label: "Code",
-    items: [
-      {
-        id: "source",
-        label: "View page source",
-        icon: "i-simple-icons-github",
-        to: `https://github.com/nuxt-ui-templates/dashboard/blob/main/app/pages${
-          route.path === "/" ? "/index" : route.path
-        }.vue`,
-        target: "_blank",
-      },
-    ],
   },
 ]);
 
@@ -490,14 +435,14 @@ onMounted(async () => {
         />
 
         <UNavigationMenu
-          v-for="(section, index) in links.slice(0, -1)"
+          v-for="(section, index) in links"
           :key="index"
           :collapsed="collapsed"
           :items="section"
           orientation="vertical"
           tooltip
           popover
-          :class="index === links.length - 2 ? 'mt-auto' : ''"
+          :class="index === links.length - 1 ? 'mt-auto' : ''"
         />
       </template>
 

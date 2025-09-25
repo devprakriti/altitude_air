@@ -1,10 +1,121 @@
 import { Elysia, t } from "elysia";
-import { eq, and, desc, count, gte, lte, like, sql } from "drizzle-orm";
+import { eq, and, desc, count, gte, lte, like, sql, sum, gt } from "drizzle-orm";
 import { db } from "../db";
 import { dailyLog } from "../db/schema/dailyLog";
 import { commonErrors } from "../lib/error-handler";
 import { authPlugin } from "../lib/auth";
 import { buildSearchConditions, buildDateRangeConditions } from "../lib/query-optimizer";
+
+// Helper function to convert HH:MM to decimal hours
+function timeToDecimal(timeStr: string): number {
+	if (!timeStr) return 0;
+	const [hours, minutes] = timeStr.split(':').map(Number);
+	return hours + (minutes / 60);
+}
+
+// Helper function to calculate totals for a given TLP and date
+async function calculateTotals(tlpNo: string, recordDate: string, organizationId: string) {
+	// Get all logs for this TLP up to and including the record date
+	const previousLogs = await db
+		.select({
+			hoursFlownAirframe: dailyLog.hoursFlownAirframe,
+			hoursFlownEngine: dailyLog.hoursFlownEngine,
+			landings: dailyLog.landings,
+			tc: dailyLog.tc,
+			noOfStarts: dailyLog.noOfStarts,
+			ggCycle: dailyLog.ggCycle,
+			ftCycle: dailyLog.ftCycle,
+		})
+		.from(dailyLog)
+		.where(
+			and(
+				eq(dailyLog.tlpNo, tlpNo),
+				eq(dailyLog.organizationId, organizationId),
+				lte(dailyLog.recordDate, recordDate),
+				eq(dailyLog.status, true)
+			)
+		)
+		.orderBy(dailyLog.recordDate);
+
+	// Calculate totals
+	let totalAirframeHr = 0;
+	let totalEngineHrTsn = 0;
+	let totalLandings = 0;
+	let totalTc = 0;
+	let totalNoOfStarts = 0;
+	let totalGgCycleTsn = 0;
+	let totalFtCycleTsn = 0;
+
+	for (const log of previousLogs) {
+		if (log.hoursFlownAirframe) {
+			totalAirframeHr += timeToDecimal(log.hoursFlownAirframe);
+		}
+		if (log.hoursFlownEngine) {
+			totalEngineHrTsn += timeToDecimal(log.hoursFlownEngine);
+		}
+		if (log.landings) {
+			totalLandings += log.landings;
+		}
+		if (log.tc) {
+			totalTc += log.tc;
+		}
+		if (log.noOfStarts) {
+			totalNoOfStarts += log.noOfStarts;
+		}
+		if (log.ggCycle) {
+			totalGgCycleTsn += log.ggCycle;
+		}
+		if (log.ftCycle) {
+			totalFtCycleTsn += log.ftCycle;
+		}
+	}
+
+	return {
+		totalAirframeHr: totalAirframeHr.toFixed(2),
+		totalEngineHrTsn: totalEngineHrTsn.toFixed(2),
+		totalLandings,
+		totalTc,
+		totalNoOfStarts,
+		totalGgCycleTsn,
+		totalFtCycleTsn,
+	};
+}
+
+// Helper function to recalculate totals for all logs after a given date for a specific TLP
+async function recalculateTotalsAfterDate(tlpNo: string, recordDate: string, organizationId: string) {
+	// Get all logs for this TLP after the given date
+	const subsequentLogs = await db
+		.select({ id: dailyLog.id, recordDate: dailyLog.recordDate })
+		.from(dailyLog)
+		.where(
+			and(
+				eq(dailyLog.tlpNo, tlpNo),
+				eq(dailyLog.organizationId, organizationId),
+				gt(dailyLog.recordDate, recordDate),
+				eq(dailyLog.status, true)
+			)
+		)
+		.orderBy(dailyLog.recordDate);
+
+	// Recalculate totals for each subsequent log
+	for (const log of subsequentLogs) {
+		const totals = await calculateTotals(tlpNo, log.recordDate, organizationId);
+		
+		await db
+			.update(dailyLog)
+			.set({
+				totalAirframeHr: totals.totalAirframeHr,
+				totalEngineHrTsn: totals.totalEngineHrTsn,
+				totalLandings: totals.totalLandings,
+				totalTc: totals.totalTc,
+				totalNoOfStarts: totals.totalNoOfStarts,
+				totalGgCycleTsn: totals.totalGgCycleTsn,
+				totalFtCycleTsn: totals.totalFtCycleTsn,
+				updatedAt: new Date()
+			})
+			.where(eq(dailyLog.id, log.id));
+	}
+}
 
 export const dailyLogRouter = new Elysia({ 
 	prefix: "/daily-logs",
@@ -183,6 +294,13 @@ export const dailyLogRouter = new Elysia({
 		}
 	})
 	.post("/", async ({ body, user, session }) => {
+		// Calculate totals based on previous logs
+		const totals = await calculateTotals(
+			body.tlpNo,
+			body.recordDate,
+			session.activeOrganizationId || 'default'
+		);
+
 		const created = await db
 			.insert(dailyLog)
 			.values({
@@ -196,13 +314,13 @@ export const dailyLogRouter = new Elysia({
 				ggCycle: body.ggCycle,
 				ftCycle: body.ftCycle,
 				usage: body.usage,
-				totalAirframeHr: body.totalAirframeHr,
-				totalEngineHrTsn: body.totalEngineHrTsn,
-				totalLandings: body.totalLandings,
-				totalTc: body.totalTc,
-				totalNoOfStarts: body.totalNoOfStarts,
-				totalGgCycleTsn: body.totalGgCycleTsn,
-				totalFtCycleTsn: body.totalFtCycleTsn,
+				totalAirframeHr: totals.totalAirframeHr,
+				totalEngineHrTsn: totals.totalEngineHrTsn,
+				totalLandings: totals.totalLandings,
+				totalTc: totals.totalTc,
+				totalNoOfStarts: totals.totalNoOfStarts,
+				totalGgCycleTsn: totals.totalGgCycleTsn,
+				totalFtCycleTsn: totals.totalFtCycleTsn,
 				remarks: body.remarks,
 				organizationId: session.activeOrganizationId || 'default',
 				createdBy: user.id,
@@ -230,13 +348,6 @@ export const dailyLogRouter = new Elysia({
 			ggCycle: t.Optional(t.Number()),
 			ftCycle: t.Optional(t.Number()),
 			usage: t.Optional(t.String()),
-			totalAirframeHr: t.Optional(t.String()),
-			totalEngineHrTsn: t.Optional(t.String()),
-			totalLandings: t.Optional(t.Number()),
-			totalTc: t.Optional(t.Number()),
-			totalNoOfStarts: t.Optional(t.Number()),
-			totalGgCycleTsn: t.Optional(t.Number()),
-			totalFtCycleTsn: t.Optional(t.Number()),
 			remarks: t.Optional(t.String())
 		}),
 		response: {
@@ -277,10 +388,44 @@ export const dailyLogRouter = new Elysia({
 		}
 	})
 	.put("/:id", async ({ params, body, user, session }) => {
+		// Get the existing log to determine TLP and date for recalculation
+		const existingLog = await db
+			.select({ tlpNo: dailyLog.tlpNo, recordDate: dailyLog.recordDate })
+			.from(dailyLog)
+			.where(
+				and(
+					eq(dailyLog.id, Number(params.id)),
+					eq(dailyLog.organizationId, session.activeOrganizationId || 'default')
+				)
+			)
+			.limit(1);
+
+		if (!existingLog.length) {
+			throw new Error("Daily log not found");
+		}
+
+		// Use the TLP and date from the existing log or from the body if being updated
+		const tlpNo = body.tlpNo || existingLog[0].tlpNo;
+		const recordDate = body.recordDate || existingLog[0].recordDate;
+
+		// Calculate totals based on the TLP and date
+		const totals = await calculateTotals(
+			tlpNo,
+			recordDate,
+			session.activeOrganizationId || 'default'
+		);
+
 		const updated = await db
 			.update(dailyLog)
 			.set({
 				...body,
+				totalAirframeHr: totals.totalAirframeHr,
+				totalEngineHrTsn: totals.totalEngineHrTsn,
+				totalLandings: totals.totalLandings,
+				totalTc: totals.totalTc,
+				totalNoOfStarts: totals.totalNoOfStarts,
+				totalGgCycleTsn: totals.totalGgCycleTsn,
+				totalFtCycleTsn: totals.totalFtCycleTsn,
 				updatedAt: new Date()
 			})
 			.where(
@@ -293,6 +438,11 @@ export const dailyLogRouter = new Elysia({
 
 		if (!updated.length) {
 			throw new Error("Failed to update daily log or log not found");
+		}
+
+		// Recalculate totals for all subsequent logs if date or TLP changed
+		if (body.recordDate || body.tlpNo) {
+			await recalculateTotalsAfterDate(tlpNo, recordDate, session.activeOrganizationId || 'default');
 		}
 
 		return {
@@ -313,13 +463,6 @@ export const dailyLogRouter = new Elysia({
 			ggCycle: t.Optional(t.Number()),
 			ftCycle: t.Optional(t.Number()),
 			usage: t.Optional(t.String()),
-			totalAirframeHr: t.Optional(t.String()),
-			totalEngineHrTsn: t.Optional(t.String()),
-			totalLandings: t.Optional(t.Number()),
-			totalTc: t.Optional(t.Number()),
-			totalNoOfStarts: t.Optional(t.Number()),
-			totalGgCycleTsn: t.Optional(t.Number()),
-			totalFtCycleTsn: t.Optional(t.Number()),
 			remarks: t.Optional(t.String())
 		}),
 		response: {
@@ -360,6 +503,22 @@ export const dailyLogRouter = new Elysia({
 		}
 	})
 	.delete("/:id", async ({ params, user, session }) => {
+		// Get the log details before deleting to recalculate subsequent logs
+		const logToDelete = await db
+			.select({ tlpNo: dailyLog.tlpNo, recordDate: dailyLog.recordDate })
+			.from(dailyLog)
+			.where(
+				and(
+					eq(dailyLog.id, Number(params.id)),
+					eq(dailyLog.organizationId, session.activeOrganizationId || 'default')
+				)
+			)
+			.limit(1);
+
+		if (!logToDelete.length) {
+			throw new Error("Daily log not found");
+		}
+
 		const deleted = await db
 			.delete(dailyLog)
 			.where(
@@ -373,6 +532,13 @@ export const dailyLogRouter = new Elysia({
 		if (!deleted.length) {
 			throw new Error("Failed to delete daily log or log not found");
 		}
+
+		// Recalculate totals for all subsequent logs
+		await recalculateTotalsAfterDate(
+			logToDelete[0].tlpNo,
+			logToDelete[0].recordDate,
+			session.activeOrganizationId || 'default'
+		);
 
 		return {
 			success: true,

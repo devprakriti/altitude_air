@@ -9,9 +9,17 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 	const adminRoutes = ['/settings/members'];
 	const isAdminRoute = adminRoutes.some(route => to.path.startsWith(route));
 
-	// If trying to access protected route and session is still loading, redirect to login
-	if (isProtectedRoute && authStore.isLoading) {
-		return navigateTo('/login');
+	// If auth is still loading, wait for it to complete
+	if (authStore.isLoading) {
+		// Wait for auth initialization to complete
+		await new Promise((resolve) => {
+			const unwatch = watch(() => authStore.isLoading, (isLoading) => {
+				if (!isLoading) {
+					unwatch()
+					resolve(true)
+				}
+			}, { immediate: true })
+		})
 	}
 
 	// If user is not authenticated and trying to access protected route

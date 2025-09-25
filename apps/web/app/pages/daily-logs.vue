@@ -59,8 +59,8 @@ const viewModal = overlay.create(DailyLogForm);
 const allAvailableFields = [
   { key: "recordDate", label: "Date" },
   { key: "tlpNo", label: "TLP No" },
-  { key: "hoursFlownAirframe", label: "Airframe Hrs" },
-  { key: "hoursFlownEngine", label: "Engine Hrs" },
+  { key: "hoursFlownAirframe", label: "Airframe Time" },
+  { key: "hoursFlownEngine", label: "Engine Time" },
   { key: "landings", label: "Landings" },
   { key: "tc", label: "TC" },
   { key: "noOfStarts", label: "Starts" },
@@ -123,6 +123,16 @@ const columns = allAvailableFields.map((field) => {
 
     case "hoursFlownAirframe":
     case "hoursFlownEngine":
+      return {
+        ...baseColumn,
+        cell: ({ row }: any) => {
+          const value = row.original[field.key];
+          return value
+            ? h("span", { class: "text-sm font-mono" }, value)
+            : h("span", { class: "text-gray-400 text-sm" }, "-");
+        },
+      };
+
     case "totalAirframeHr":
     case "totalEngineHrTsn":
       return {

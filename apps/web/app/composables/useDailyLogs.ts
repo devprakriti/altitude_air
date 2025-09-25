@@ -53,13 +53,6 @@ export interface CreateDailyLogData {
   ggCycle?: number
   ftCycle?: number
   usage?: string
-  totalAirframeHr?: string
-  totalEngineHrTsn?: string
-  totalLandings?: number
-  totalTc?: number
-  totalNoOfStarts?: number
-  totalGgCycleTsn?: number
-  totalFtCycleTsn?: number
   remarks?: string
 }
 

@@ -186,6 +186,11 @@ export const useAuthStore = defineStore('auth', {
 
     // Initialize auth state from session
     async initializeAuth() {
+      // Only initialize if not already loading or authenticated
+      if (this.isLoading || this.isAuthenticated) {
+        return { success: true }
+      }
+
       this.setLoading(true)
       this.setError(null)
 
