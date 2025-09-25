@@ -7,61 +7,357 @@ const authStore = useAuthStore();
 
 const open = ref(false);
 
-const baseLinks = [
-  {
-    label: "Home",
-    icon: "i-lucide-house",
-    to: "/",
-    onSelect: () => {
-      open.value = false;
+const dashboardLinks = {
+  label: "Dashboard",
+  icon: "i-lucide-layout-dashboard",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "Overview",
+      to: "/",
+      onSelect: () => {
+        open.value = false;
+      },
     },
-  },
-  {
-    label: "Todos",
-    icon: "i-lucide-check-square",
-    to: "/todos",
-    onSelect: () => {
-      open.value = false;
+    {
+      label: "Alerts and Notifications",
+      to: "/inbox",
+      badge: "4",
+      onSelect: () => {
+        open.value = false;
+      },
     },
-  },
-  {
-    label: "Daily Logs",
-    icon: "i-lucide-clipboard-list",
-    to: "/daily-logs",
-    onSelect: () => {
-      open.value = false;
+  ],
+};
+
+const maintenancePlanningLinks = {
+  label: "Maintenance Planning",
+  icon: "i-lucide-wrench",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "Daily Log",
+      to: "/daily-logs",
+      onSelect: () => {
+        open.value = false;
+      },
     },
-  },
-  {
-    label: "Inbox",
-    icon: "i-lucide-inbox",
-    to: "/inbox",
-    badge: "4",
-    onSelect: () => {
-      open.value = false;
+    {
+      label: "TLP Scan",
+      to: "/tlp-scan",
+      onSelect: () => {
+        open.value = false;
+      },
     },
-  },
-  {
-    label: "Customers",
-    icon: "i-lucide-users",
-    to: "/customers",
-    onSelect: () => {
-      open.value = false;
+    {
+      label: "Monitoring Chart",
+      to: "/monitoring-chart",
+      onSelect: () => {
+        open.value = false;
+      },
     },
-  },
-];
+    {
+      label: "Component Status",
+      to: "/component-status",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Out of Phase Inspection",
+      to: "/out-of-phase-inspection",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "NRC",
+      to: "/nrc",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "AWC",
+      to: "/awc",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Component Changes",
+      to: "/component-changes",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Maintenance Work Order Tracking",
+      to: "/maintenance-work-order-tracking",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Engine Health Check",
+      to: "/engine-health-check",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Concession",
+      to: "/concession",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "ADD Tracking",
+      to: "/add-tracking",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Airframe Logbook",
+      to: "/airframe-logbook",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Engine Logbook",
+      to: "/engine-logbook",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Maintenance Occurrence Report",
+      to: "/maintenance-occurrence-report",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Work Pack Scan",
+      to: "/work-pack-scan",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+  ],
+};
+
+const technicalServicesLinks = {
+  label: "Technical Services",
+  icon: "i-lucide-cog",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "Website Visit Log",
+      to: "/website-visit-log",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "AD/SB Compliance Summary",
+      to: "/ad-sb-compliance-summary",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Individual Inspection Log Book",
+      to: "/individual-inspection-log-book",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "AD/SB Tracking System",
+      to: "/ad-sb-tracking-system",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "ETO",
+      to: "/eto",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "TDR",
+      to: "/tdr",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+  ],
+};
+
+const technicalLibraryLinks = {
+  label: "Technical Library",
+  icon: "i-lucide-library",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "Company Document",
+      to: "/company-document",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "CAAN Document",
+      to: "/caan-document",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Manufacturers Document",
+      to: "/manufacturers-document",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Distribution and Control of Company Manuals",
+      to: "/distribution-control-manuals",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Maintenance Data Record",
+      to: "/maintenance-data-record",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Technical Training Record",
+      type: "trigger" as const,
+      children: [
+        {
+          label: "Training Conducted",
+          to: "/training-conducted",
+          onSelect: () => {
+            open.value = false;
+          },
+        },
+        {
+          label: "Training Overview",
+          to: "/training-overview",
+          onSelect: () => {
+            open.value = false;
+          },
+        },
+      ],
+    },
+  ],
+};
+
+const fleetManagementLinks = {
+  label: "Fleet Management",
+  icon: "i-lucide-plane",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "Helicopter Overview",
+      to: "/helicopter-overview",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Flight Hours Tracker",
+      to: "/flight-hours-tracker",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+  ],
+};
+
+const userManagementLinks = {
+  label: "User and Role Management",
+  icon: "i-lucide-users",
+  type: "trigger" as const,
+  defaultOpen: true,
+  children: [
+    {
+      label: "User Management",
+      to: "/user-management",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Roles and Permissions",
+      to: "/roles-permissions",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+  ],
+};
 
 // Admin functionality is now integrated into settings/members
 
-const settingsLinks = {
-  label: "Settings",
-  to: "/settings",
+const settingsSupportLinks = {
+  label: "Settings / Support",
   icon: "i-lucide-settings",
-  defaultOpen: true,
   type: "trigger" as const,
+  defaultOpen: true,
   children: [
     {
-      label: "General",
+      label: "System Configuration",
+      to: "/system-configuration",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Fleet Configuration",
+      to: "/fleet-configuration",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Compliance Settings",
+      to: "/compliance-settings",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "User Manual",
+      to: "/user-manual",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "Knowledge Base",
+      to: "/knowledge-base",
+      onSelect: () => {
+        open.value = false;
+      },
+    },
+    {
+      label: "General Settings",
       to: "/settings",
       exact: true,
       onSelect: () => {
@@ -108,7 +404,16 @@ const footerLinks = [
 ];
 
 const links = computed(() => {
-  return [baseLinks, [settingsLinks], footerLinks];
+  return [
+    [dashboardLinks],
+    [maintenancePlanningLinks],
+    [technicalServicesLinks],
+    [technicalLibraryLinks],
+    [fleetManagementLinks],
+    [userManagementLinks],
+    [settingsSupportLinks],
+    footerLinks,
+  ];
 }) satisfies ComputedRef<NavigationMenuItem[][]>;
 
 const groups = computed(() => [
@@ -185,19 +490,14 @@ onMounted(async () => {
         />
 
         <UNavigationMenu
+          v-for="(section, index) in links.slice(0, -1)"
+          :key="index"
           :collapsed="collapsed"
-          :items="links[0]"
+          :items="section"
           orientation="vertical"
           tooltip
           popover
-        />
-
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="links[1]"
-          orientation="vertical"
-          tooltip
-          class="mt-auto"
+          :class="index === links.length - 2 ? 'mt-auto' : ''"
         />
       </template>
 

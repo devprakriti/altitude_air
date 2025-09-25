@@ -4,9 +4,9 @@
   >
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="text-center">
-        <h1 class="text-3xl font-bold text-gray-900">🚁 Fleet Management</h1>
+        <h1 class="text-3xl font-bold text-gray-900">🚁 Altitude Air</h1>
         <p class="mt-2 text-sm text-gray-600">
-          Welcome back to your fleet management system
+          Welcome back to Altitude Air fleet management system
         </p>
       </div>
     </div>
