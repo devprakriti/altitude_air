@@ -159,7 +159,15 @@ const items = computed<DropdownMenuItem[][]>(() => [
       label: "Log out",
       icon: "i-lucide-log-out",
       onClick: async () => {
-        await authStore.signOut();
+        const result = await authStore.signOut();
+        if (!result.success) {
+          const toast = useToast();
+          toast.add({
+            title: "Error",
+            description: result.error?.message || "Failed to sign out",
+            color: "error",
+          });
+        }
       },
     },
   ],

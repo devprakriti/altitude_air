@@ -109,7 +109,6 @@ export const useAuthStore = defineStore('auth', {
         })
 
         if (result.error) {
-          this.setError(result.error.message || 'Sign in failed')
           return { success: false, error: result.error }
         }
 
@@ -130,7 +129,6 @@ export const useAuthStore = defineStore('auth', {
         return { success: true, data: result.data }
       } catch (error: any) {
         const errorMessage = error.message || 'An unexpected error occurred'
-        this.setError(errorMessage)
         return { success: false, error: { message: errorMessage } }
       } finally {
         this.setLoading(false)
@@ -149,7 +147,6 @@ export const useAuthStore = defineStore('auth', {
         return { success: true }
       } catch (error: any) {
         const errorMessage = error.message || 'Failed to sign out'
-        this.setError(errorMessage)
         return { success: false, error: { message: errorMessage } }
       } finally {
         this.setLoading(false)
@@ -165,7 +162,6 @@ export const useAuthStore = defineStore('auth', {
         const result = await $authClient.updateUser(data)
 
         if (result.error) {
-          this.setError(result.error.message || 'Failed to update profile')
           return { success: false, error: result.error }
         }
 
@@ -177,7 +173,6 @@ export const useAuthStore = defineStore('auth', {
         return { success: true, data: result.data }
       } catch (error: any) {
         const errorMessage = error.message || 'Failed to update profile'
-        this.setError(errorMessage)
         return { success: false, error: { message: errorMessage } }
       } finally {
         this.setLoading(false)

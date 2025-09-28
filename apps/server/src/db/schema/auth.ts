@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, check } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // User role types
 export type UserRole = "admin" | "user";
@@ -19,7 +19,7 @@ export const user = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
 });
-  
+
 export const session = pgTable("session", {
   id: text("id").primaryKey(),
   expiresAt: timestamp("expires_at").notNull(),

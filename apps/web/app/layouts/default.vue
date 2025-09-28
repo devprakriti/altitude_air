@@ -211,35 +211,35 @@ const technicalLibraryLinks = {
   children: [
     {
       label: "Company Document",
-      to: "/company-document",
+      to: "/technical-library/company-document",
       onSelect: () => {
         open.value = false;
       },
     },
     {
       label: "CAAN Document",
-      to: "/caan-document",
+      to: "/technical-library/caan-document",
       onSelect: () => {
         open.value = false;
       },
     },
     {
       label: "Manufacturers Document",
-      to: "/manufacturers-document",
+      to: "/technical-library/manufacturers-document",
       onSelect: () => {
         open.value = false;
       },
     },
     {
       label: "Distribution and Control of Company Manuals",
-      to: "/distribution-control-manuals",
+      to: "/technical-library/distribution-control-manuals",
       onSelect: () => {
         open.value = false;
       },
     },
     {
       label: "Maintenance Data Record",
-      to: "/maintenance-data-record",
+      to: "/technical-library/maintenance-data-record",
       onSelect: () => {
         open.value = false;
       },
@@ -250,14 +250,14 @@ const technicalLibraryLinks = {
       children: [
         {
           label: "Training Conducted",
-          to: "/training-conducted",
+          to: "/technical-library/training-conducted",
           onSelect: () => {
             open.value = false;
           },
         },
         {
           label: "Training Overview",
-          to: "/training-overview",
+          to: "/technical-library/training-overview",
           onSelect: () => {
             open.value = false;
           },
@@ -384,34 +384,34 @@ const groups = computed(() => [
   },
 ]);
 
-onMounted(async () => {
-  const cookie = useCookie("cookie-consent");
-  if (cookie.value === "accepted") {
-    return;
-  }
+// onMounted(async () => {
+//   const cookie = useCookie("cookie-consent");
+//   if (cookie.value === "accepted") {
+//     return;
+//   }
 
-  // toast.add({
-  //   title:
-  //     "We use first-party cookies to enhance your experience on our website.",
-  //   duration: 0,
-  //   close: false,
-  //   actions: [
-  //     {
-  //       label: "Accept",
-  //       color: "neutral",
-  //       variant: "outline",
-  //       onClick: () => {
-  //         cookie.value = "accepted";
-  //       },
-  //     },
-  //     {
-  //       label: "Opt out",
-  //       color: "neutral",
-  //       variant: "ghost",
-  //     },
-  //   ],
-  // });
-});
+// toast.add({
+//   title:
+//     "We use first-party cookies to enhance your experience on our website.",
+//   duration: 0,
+//   close: false,
+//   actions: [
+//     {
+//       label: "Accept",
+//       color: "neutral",
+//       variant: "outline",
+//       onClick: () => {
+//         cookie.value = "accepted";
+//       },
+//     },
+//     {
+//       label: "Opt out",
+//       color: "neutral",
+//       variant: "ghost",
+//     },
+//   ],
+// });
+// });
 </script>
 
 <template>

@@ -1,22 +1,26 @@
 import { Elysia, t } from "elysia";
-import { s3Client, getMimeType } from "../lib/s3";
+import { checkFileAccessControl } from "../lib/access-control";
 import { authPlugin } from "../lib/auth";
-import { validateFile, generateSecureFileKey, sanitizeFilename } from "../lib/file-security";
-import { checkFileAccessControl, validateFileKey } from "../lib/access-control";
+import {
+  generateSecureFileKey,
+  sanitizeFilename,
+  validateFile,
+} from "../lib/file-security";
+import { s3Client } from "../lib/s3";
 
 export const filesRouter = new Elysia({ prefix: "/files" })
-	.use(authPlugin)
+  .use(authPlugin)
   .post(
     "/upload",
     async ({ body, user, set }) => {
       try {
         const { file, filename } = body as { file: File; filename: string };
-        
-        if (!file || !filename) {
+
+        if (!(file && filename)) {
           set.status = 400;
           return {
             success: false,
-            error: "File and filename are required"
+            error: "File and filename are required",
           };
         }
 
@@ -26,7 +30,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           set.status = 400;
           return {
             success: false,
-            error: validation.error
+            error: validation.error,
           };
         }
 
@@ -37,7 +41,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         // Upload to S3
         await s3Client.write(fileKey, file, {
           type: validation.mimeType || file.type,
-          acl: "private"
+          acl: "private",
         });
 
         return {
@@ -48,15 +52,14 @@ export const filesRouter = new Elysia({ prefix: "/files" })
             originalFilename: filename,
             size: file.size,
             mimeType: validation.mimeType,
-            uploadedAt: new Date().toISOString()
-          }
+            uploadedAt: new Date().toISOString(),
+          },
         };
-      } catch (error) {
-        console.error("Upload error:", error);
+      } catch (_error) {
         set.status = 500;
         return {
           success: false,
-          error: "Failed to upload file"
+          error: "Failed to upload file",
         };
       }
     },
@@ -64,13 +67,13 @@ export const filesRouter = new Elysia({ prefix: "/files" })
       auth: true,
       body: t.Object({
         file: t.File(),
-        filename: t.String()
+        filename: t.String(),
       }),
       detail: {
         tags: ["Files"],
         summary: "Upload a file to S3",
-        description: "Upload a file to S3 storage with user-specific path"
-      }
+        description: "Upload a file to S3 storage with user-specific path",
+      },
     }
   )
   .get(
@@ -78,20 +81,20 @@ export const filesRouter = new Elysia({ prefix: "/files" })
     async ({ query, set, user, session }) => {
       try {
         const { fileKey } = query;
-        
+
         if (!fileKey) {
           set.status = 400;
           return { success: false, error: "File key is required" };
         }
-        
+
         // Check access control
         const accessCheck = await checkFileAccessControl(
           fileKey,
           user.id,
-          'read',
+          "read",
           session.activeOrganizationId || undefined
         );
-        
+
         if (!accessCheck.hasAccess) {
           set.status = 403;
           return { success: false, error: accessCheck.error };
@@ -106,13 +109,12 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         set.headers = {
           "Content-Type": stat.type || "application/octet-stream",
           "Content-Length": stat.size.toString(),
-          "Content-Disposition": `attachment; filename="${fileKey.split('/').pop()}"`,
-          "Cache-Control": "private, max-age=3600"
+          "Content-Disposition": `attachment; filename="${fileKey.split("/").pop()}"`,
+          "Cache-Control": "private, max-age=3600",
         };
 
         return new Response(fileData);
-      } catch (error) {
-        console.error("Download error:", error);
+      } catch (_error) {
         set.status = 500;
         return { success: false, error: "Failed to download file" };
       }
@@ -120,13 +122,13 @@ export const filesRouter = new Elysia({ prefix: "/files" })
     {
       auth: true,
       query: t.Object({
-        fileKey: t.String()
+        fileKey: t.String(),
       }),
       detail: {
         tags: ["Files"],
         summary: "Download a file from S3",
-        description: "Download a file from S3 storage"
-      }
+        description: "Download a file from S3 storage",
+      },
     }
   )
   .get(
@@ -139,7 +141,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           set.status = 400;
           return {
             success: false,
-            error: "File key is required"
+            error: "File key is required",
           };
         }
 
@@ -147,10 +149,10 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         const accessCheck = await checkFileAccessControl(
           fileKey,
           user.id,
-          'read',
+          "read",
           session.activeOrganizationId || undefined
         );
-        
+
         if (!accessCheck.hasAccess) {
           set.status = 403;
           return { success: false, error: accessCheck.error };
@@ -159,24 +161,23 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         // Generate presigned URL
         const s3File = s3Client.file(fileKey);
         const presignedUrl = s3File.presign({
-          expiresIn: parseInt(expiresIn as string),
-          acl: "private"
+          expiresIn: Number.parseInt(expiresIn as string, 10),
+          acl: "private",
         });
 
         return {
           success: true,
           data: {
             url: presignedUrl,
-            expiresIn: parseInt(expiresIn as string),
-            fileKey
-          }
+            expiresIn: Number.parseInt(expiresIn as string, 10),
+            fileKey,
+          },
         };
-      } catch (error) {
-        console.error("Presign error:", error);
+      } catch (_error) {
         set.status = 500;
         return {
           success: false,
-          error: "Failed to generate presigned URL"
+          error: "Failed to generate presigned URL",
         };
       }
     },
@@ -184,13 +185,14 @@ export const filesRouter = new Elysia({ prefix: "/files" })
       auth: true,
       query: t.Object({
         fileKey: t.String(),
-        expiresIn: t.Optional(t.String())
+        expiresIn: t.Optional(t.String()),
       }),
       detail: {
         tags: ["Files"],
         summary: "Generate presigned URL for file access",
-        description: "Generate a temporary presigned URL for secure file access"
-      }
+        description:
+          "Generate a temporary presigned URL for secure file access",
+      },
     }
   )
   .get(
@@ -203,10 +205,10 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         const accessCheck = await checkFileAccessControl(
           prefix as string,
           user.id,
-          'list',
+          "list",
           session.activeOrganizationId || undefined
         );
-        
+
         if (!accessCheck.hasAccess) {
           set.status = 403;
           return { success: false, error: accessCheck.error };
@@ -214,29 +216,29 @@ export const filesRouter = new Elysia({ prefix: "/files" })
 
         const result = await s3Client.list({
           prefix: prefix as string,
-          maxKeys: parseInt(maxKeys as string),
-          fetchOwner: true
+          maxKeys: Number.parseInt(maxKeys as string, 10),
+          fetchOwner: true,
         });
 
         return {
           success: true,
           data: {
-            files: result.contents?.map(file => ({
-              key: file.key,
-              size: file.size,
-              lastModified: file.lastModified,
-              etag: file.eTag
-            })) || [],
+            files:
+              result.contents?.map((file) => ({
+                key: file.key,
+                size: file.size,
+                lastModified: file.lastModified,
+                etag: file.eTag,
+              })) || [],
             isTruncated: result.isTruncated,
-            count: result.contents?.length || 0
-          }
+            count: result.contents?.length || 0,
+          },
         };
-      } catch (error) {
-        console.error("List files error:", error);
+      } catch (_error) {
         set.status = 500;
         return {
           success: false,
-          error: "Failed to list files"
+          error: "Failed to list files",
         };
       }
     },
@@ -244,13 +246,13 @@ export const filesRouter = new Elysia({ prefix: "/files" })
       auth: true,
       query: t.Object({
         prefix: t.Optional(t.String()),
-        maxKeys: t.Optional(t.String())
+        maxKeys: t.Optional(t.String()),
       }),
       detail: {
         tags: ["Files"],
         summary: "List user's files",
-        description: "List files uploaded by the authenticated user"
-      }
+        description: "List files uploaded by the authenticated user",
+      },
     }
   )
   .delete(
@@ -263,7 +265,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           set.status = 400;
           return {
             success: false,
-            error: "File key is required"
+            error: "File key is required",
           };
         }
 
@@ -271,10 +273,10 @@ export const filesRouter = new Elysia({ prefix: "/files" })
         const accessCheck = await checkFileAccessControl(
           fileKey,
           user.id,
-          'delete',
+          "delete",
           session.activeOrganizationId || undefined
         );
-        
+
         if (!accessCheck.hasAccess) {
           set.status = 403;
           return { success: false, error: accessCheck.error };
@@ -285,26 +287,25 @@ export const filesRouter = new Elysia({ prefix: "/files" })
 
         return {
           success: true,
-          message: "File deleted successfully"
+          message: "File deleted successfully",
         };
-      } catch (error) {
-        console.error("Delete error:", error);
+      } catch (_error) {
         set.status = 500;
         return {
           success: false,
-          error: "Failed to delete file"
+          error: "Failed to delete file",
         };
       }
     },
     {
       auth: true,
       query: t.Object({
-        fileKey: t.String()
+        fileKey: t.String(),
       }),
       detail: {
         tags: ["Files"],
         summary: "Delete a file",
-        description: "Delete a file from S3 storage"
-      }
+        description: "Delete a file from S3 storage",
+      },
     }
   );

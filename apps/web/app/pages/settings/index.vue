@@ -37,16 +37,25 @@ const loading = ref(false);
 async function onSubmit(event: FormSubmitEvent<ProfileSchema>) {
   loading.value = true;
   try {
-    await updateProfile({
+    const result = await updateProfile({
       name: event.data.name,
     });
 
-    toast.add({
-      title: "Success",
-      description: "Your profile has been updated.",
-      icon: "i-lucide-check",
-      color: "success",
-    });
+    if (result.success) {
+      toast.add({
+        title: "Success",
+        description: "Your profile has been updated.",
+        icon: "i-lucide-check",
+        color: "success",
+      });
+    } else {
+      toast.add({
+        title: "Error",
+        description: result.error?.message || "Failed to update profile.",
+        icon: "i-lucide-x",
+        color: "error",
+      });
+    }
   } catch (error: any) {
     toast.add({
       title: "Error",
@@ -73,13 +82,23 @@ function onFileChange(e: Event) {
   reader.onload = async (e) => {
     const result = e.target?.result as string;
     try {
-      await updateProfile({ image: result });
-      toast.add({
-        title: "Success",
-        description: "Avatar updated successfully.",
-        icon: "i-lucide-check",
-        color: "success",
-      });
+      const updateResult = await updateProfile({ image: result });
+      if (updateResult.success) {
+        toast.add({
+          title: "Success",
+          description: "Avatar updated successfully.",
+          icon: "i-lucide-check",
+          color: "success",
+        });
+      } else {
+        toast.add({
+          title: "Error",
+          description:
+            updateResult.error?.message || "Failed to update avatar.",
+          icon: "i-lucide-x",
+          color: "error",
+        });
+      }
     } catch (error: any) {
       toast.add({
         title: "Error",

@@ -1,9 +1,9 @@
 import { s3Client } from "./s3";
 
-export interface AccessControlResult {
+export type AccessControlResult = {
   hasAccess: boolean;
   error?: string;
-}
+};
 
 /**
  * Check if user has access to a specific file
@@ -23,7 +23,10 @@ export async function checkFileAccess(
     // Check if file belongs to user (basic path-based access control)
     const userPrefix = `uploads/${userId}/`;
     if (!fileKey.startsWith(userPrefix)) {
-      return { hasAccess: false, error: "Access denied: File does not belong to user" };
+      return {
+        hasAccess: false,
+        error: "Access denied: File does not belong to user",
+      };
     }
 
     // Additional organization-based access control if needed
@@ -31,14 +34,16 @@ export async function checkFileAccess(
       // You can implement organization-level access control here
       // For example, check if the file is in an organization-specific folder
       const orgPrefix = `uploads/${organizationId}/`;
-      if (!fileKey.startsWith(orgPrefix) && !fileKey.startsWith(userPrefix)) {
-        return { hasAccess: false, error: "Access denied: File not accessible by organization" };
+      if (!(fileKey.startsWith(orgPrefix) || fileKey.startsWith(userPrefix))) {
+        return {
+          hasAccess: false,
+          error: "Access denied: File not accessible by organization",
+        };
       }
     }
 
     return { hasAccess: true };
-  } catch (error) {
-    console.error("Access control check failed:", error);
+  } catch (_error) {
     return { hasAccess: false, error: "Access control check failed" };
   }
 }
@@ -55,20 +60,25 @@ export function checkFileListAccess(
     // Ensure user can only list their own files
     const userPrefix = `uploads/${userId}/`;
     if (!prefix.startsWith(userPrefix)) {
-      return { hasAccess: false, error: "Access denied: Can only list own files" };
+      return {
+        hasAccess: false,
+        error: "Access denied: Can only list own files",
+      };
     }
 
     // Additional organization-based access control
     if (organizationId) {
       const orgPrefix = `uploads/${organizationId}/`;
-      if (!prefix.startsWith(orgPrefix) && !prefix.startsWith(userPrefix)) {
-        return { hasAccess: false, error: "Access denied: Can only list organization files" };
+      if (!(prefix.startsWith(orgPrefix) || prefix.startsWith(userPrefix))) {
+        return {
+          hasAccess: false,
+          error: "Access denied: Can only list organization files",
+        };
       }
     }
 
     return { hasAccess: true };
-  } catch (error) {
-    console.error("File list access check failed:", error);
+  } catch (_error) {
     return { hasAccess: false, error: "File list access check failed" };
   }
 }
@@ -79,21 +89,22 @@ export function checkFileListAccess(
 export function validateFileKey(fileKey: string): AccessControlResult {
   try {
     // Check for path traversal attempts
-    if (fileKey.includes('..') || fileKey.includes('//') || fileKey.startsWith('/')) {
+    if (
+      fileKey.includes("..") ||
+      fileKey.includes("//") ||
+      fileKey.startsWith("/")
+    ) {
       return { hasAccess: false, error: "Invalid file path" };
     }
 
     // Check for suspicious patterns
-    const suspiciousPatterns = [
-      /\.\./,
-      /\/\//,
-      /^\/.*/,
-      /.*\/$/,
-      /[<>:"|?*]/
-    ];
+    const suspiciousPatterns = [/\.\./, /\/\//, /^\/.*/, /.*\/$/, /[<>:"|?*]/];
 
-    if (suspiciousPatterns.some(pattern => pattern.test(fileKey))) {
-      return { hasAccess: false, error: "File path contains invalid characters" };
+    if (suspiciousPatterns.some((pattern) => pattern.test(fileKey))) {
+      return {
+        hasAccess: false,
+        error: "File path contains invalid characters",
+      };
     }
 
     // Ensure file key follows expected format
@@ -102,8 +113,7 @@ export function validateFileKey(fileKey: string): AccessControlResult {
     }
 
     return { hasAccess: true };
-  } catch (error) {
-    console.error("File key validation failed:", error);
+  } catch (_error) {
     return { hasAccess: false, error: "File key validation failed" };
   }
 }
@@ -112,25 +122,66 @@ export function validateFileKey(fileKey: string): AccessControlResult {
  * Check if user has permission to perform file operations
  */
 export function checkFileOperationPermission(
-  operation: 'read' | 'write' | 'delete' | 'list',
-  userId: string,
-  organizationId?: string
+  operation: "read" | "write" | "delete" | "list",
+  _userId: string,
+  _organizationId?: string
 ): AccessControlResult {
   try {
     // Basic permission checks
     switch (operation) {
-      case 'read':
-      case 'write':
-      case 'delete':
-      case 'list':
+      case "read":
+      case "write":
+      case "delete":
+      case "list":
         // All authenticated users can perform these operations on their own files
         return { hasAccess: true };
-      
+
       default:
         return { hasAccess: false, error: "Unknown operation" };
     }
-  } catch (error) {
-    console.error("Permission check failed:", error);
+  } catch (_error) {
+    return { hasAccess: false, error: "Permission check failed" };
+  }
+}
+
+/**
+ * Check if user has permission to perform technical library operations
+ */
+export function checkTechnicalLibraryPermission(
+  operation: "read" | "write" | "delete" | "list",
+  userRole: string,
+  organizationId: string,
+  userOrganizationId?: string
+): AccessControlResult {
+  try {
+    // Check organization access
+    if (userOrganizationId && userOrganizationId !== organizationId) {
+      return {
+        hasAccess: false,
+        error: "Access denied: Can only access own organization files",
+      };
+    }
+
+    // Role-based permissions
+    switch (userRole) {
+      case "admin":
+        // Admin can do everything
+        return { hasAccess: true };
+
+      case "user":
+        // Users can only read and list (view/download)
+        if (operation === "read" || operation === "list") {
+          return { hasAccess: true };
+        }
+        return {
+          hasAccess: false,
+          error: "Access denied: Users can only view and download files",
+        };
+
+      default:
+        return { hasAccess: false, error: "Access denied: Invalid user role" };
+    }
+  } catch (_error) {
     return { hasAccess: false, error: "Permission check failed" };
   }
 }
@@ -141,7 +192,7 @@ export function checkFileOperationPermission(
 export async function checkFileAccessControl(
   fileKey: string,
   userId: string,
-  operation: 'read' | 'write' | 'delete' | 'list',
+  operation: "read" | "write" | "delete" | "list",
   organizationId?: string
 ): Promise<AccessControlResult> {
   try {
@@ -152,20 +203,23 @@ export async function checkFileAccessControl(
     }
 
     // Check operation permission
-    const permissionCheck = checkFileOperationPermission(operation, userId, organizationId);
+    const permissionCheck = checkFileOperationPermission(
+      operation,
+      userId,
+      organizationId
+    );
     if (!permissionCheck.hasAccess) {
       return permissionCheck;
     }
 
     // For list operations, check prefix access
-    if (operation === 'list') {
+    if (operation === "list") {
       return checkFileListAccess(fileKey, userId, organizationId);
     }
 
     // For other operations, check specific file access
     return await checkFileAccess(fileKey, userId, organizationId);
-  } catch (error) {
-    console.error("Comprehensive access control check failed:", error);
+  } catch (_error) {
     return { hasAccess: false, error: "Access control check failed" };
   }
 }

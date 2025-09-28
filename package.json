@@ -21,9 +21,9 @@
     "auth:generate": "turbo -F server auth:generate"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.2",
+    "@biomejs/biome": "2.2.4",
     "turbo": "^2.5.8",
-    "ultracite": "5.3.4"
+    "ultracite": "5.4.5"
   },
   "packageManager": "bun@1.2.20"
 }
