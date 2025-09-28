@@ -120,36 +120,18 @@ export const useTechnicalLibrary = () => {
     try {
       const response = await $eden["technical-library"].download({ id }).get();
 
-      if (
-        response.data &&
-        typeof response.data === "object" &&
-        "arrayBuffer" in response.data
-      ) {
-        // The response is a Response object with the file
-        const blob = await (response.data as Response).arrayBuffer();
-        const url = window.URL.createObjectURL(new Blob([blob]));
+      if (response.data?.success && response.data.data?.downloadUrl) {
+        // Use the presigned URL for direct download
+        const { downloadUrl, filename } = response.data.data;
+        
+        // Create a temporary link and trigger download
         const a = document.createElement("a");
-        a.href = url;
-
-        // Get filename from response headers or use default
-        const contentDisposition = (response.data as Response).headers?.get?.(
-          "content-disposition"
-        );
-        let filename = `file-${id}`;
-        if (contentDisposition) {
-          const matches = contentDisposition.match(
-            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-          );
-          if (matches?.[1]) {
-            filename = matches[1].replace(/['"]/g, "");
-          }
-        }
-
-        a.download = filename;
+        a.href = downloadUrl;
+        a.download = filename || `file-${id}`;
+        a.target = "_blank"; // Open in new tab as fallback
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
 
         toast.add({
           title: "Success",
@@ -158,10 +140,57 @@ export const useTechnicalLibrary = () => {
         });
         return true;
       }
-      throw new Error("Failed to download file");
+      
+      throw new Error(response.data?.error || "Failed to download file");
     } catch (err: any) {
       const errorMsg =
         err.message || "An error occurred while downloading file";
+      toast.add({
+        title: "Error",
+        description: errorMsg,
+        color: "error",
+      });
+      return false;
+    }
+  };
+
+  const printFile = async (id: number) => {
+    try {
+      const response = await $eden["technical-library"].download({ id }).get();
+
+      if (response.data?.success && response.data.data?.downloadUrl) {
+        // Use the presigned URL to open file for printing
+        const { downloadUrl } = response.data.data;
+        
+        // Open the file in a new window/tab for printing
+        const printWindow = window.open(downloadUrl, '_blank');
+        
+        if (printWindow) {
+          // Focus on the new window
+          printWindow.focus();
+          
+          toast.add({
+            title: "Success",
+            description: "File opened for printing",
+            color: "success",
+          });
+        } else {
+          // Fallback if popup is blocked
+          window.open(downloadUrl, '_blank');
+          toast.add({
+            title: "Info",
+            description: "File opened in new tab. You can print from there.",
+            color: "info",
+          });
+        }
+        
+        return true;
+      }
+      
+      throw new Error(response.data?.error || "Failed to open file for printing");
+    } catch (err: any) {
+      const errorMsg =
+        err.message || "An error occurred while opening file for printing";
       toast.add({
         title: "Error",
         description: errorMsg,
@@ -246,6 +275,7 @@ export const useTechnicalLibrary = () => {
     fetchFiles,
     uploadFile,
     downloadFile,
+    printFile,
     deleteFile,
     setFilters,
     setPage,

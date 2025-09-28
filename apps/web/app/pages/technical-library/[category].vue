@@ -5,6 +5,7 @@ import type { TechnicalLibraryFile } from "~/composables/useTechnicalLibrary";
 
 const route = useRoute();
 const category = route.params.category as string;
+const { isAdmin } = useAuth();
 
 definePageMeta({
   middleware: ["auth"],
@@ -47,6 +48,7 @@ const {
   fetchFiles,
   uploadFile,
   downloadFile,
+  printFile,
   deleteFile,
 } = useTechnicalLibrary();
 
@@ -119,6 +121,11 @@ const handleDownload = async (file: TechnicalLibraryFile) => {
   await downloadFile(file.id);
 };
 
+// Print file
+const handlePrint = async (file: TechnicalLibraryFile) => {
+  await printFile(file.id);
+};
+
 // Load files on mount
 onMounted(() => {
   fetchFiles({ category });
@@ -149,6 +156,7 @@ onMounted(() => {
 
         <template #right>
           <UButton
+            v-if="isAdmin"
             icon="i-lucide-plus"
             size="md"
             class="rounded-full"
@@ -197,31 +205,22 @@ onMounted(() => {
         <!-- Grid Layout -->
         <div
           v-else-if="filteredFiles.length > 0"
-          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-6"
         >
-          <div
+          <UCard
             v-for="file in filteredFiles"
             :key="file.id"
-            class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+            class="group hover:shadow-lg hover:shadow-gray-200/50 transition-all duration-200 hover:-translate-y-1 cursor-pointer border-0 ring-1 ring-gray-200 hover:ring-gray-300"
+            :ui="{
+              body: { padding: 'p-5' },
+              background: 'bg-white',
+              rounded: 'rounded-xl',
+            }"
+            @click="handleDownload(file)"
           >
-            <!-- File Icon and Actions -->
-            <div class="flex items-start justify-between mb-3">
-              <div class="flex items-center gap-3">
-                <div class="p-2 bg-blue-50 rounded-lg">
-                  <UIcon
-                    :name="getFileTypeIcon(file.mimeType)"
-                    class="w-6 h-6 text-blue-600"
-                  />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <UBadge
-                    :label="categoryTitle"
-                    variant="soft"
-                    size="xs"
-                    class="mb-1"
-                  />
-                </div>
-              </div>
+            <!-- Header with Badge and Actions -->
+            <div class="flex items-start justify-between mb-4">
+              <UBadge :label="categoryTitle" variant="subtle" size="sm" />
               <UDropdownMenu
                 :items="[
                   [
@@ -230,55 +229,86 @@ onMounted(() => {
                       icon: 'i-lucide-download',
                       onSelect: () => handleDownload(file),
                     },
-                  ],
-                  [
                     {
-                      label: 'Delete',
-                      icon: 'i-lucide-trash-2',
-                      onSelect: () => openDeleteModal(file),
+                      label: 'Print',
+                      icon: 'i-lucide-printer',
+                      onSelect: () => handlePrint(file),
                     },
                   ],
+                  ...(isAdmin
+                    ? [
+                        [
+                          {
+                            label: 'Delete',
+                            icon: 'i-lucide-trash-2',
+                            onSelect: () => openDeleteModal(file),
+                          },
+                        ],
+                      ]
+                    : []),
                 ]"
               >
                 <UButton
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   icon="i-lucide-more-vertical"
-                  class="text-gray-400 hover:text-gray-600"
+                  class="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600"
+                  @click.stop
                 />
               </UDropdownMenu>
             </div>
 
-            <!-- File Name -->
-            <h3
-              class="font-medium text-gray-900 mb-2 truncate"
-              :title="file.originalFilename"
-            >
-              {{ file.originalFilename }}
-            </h3>
+            <!-- File Icon and Name -->
+            <div class="flex items-center gap-4 mb-4">
+              <div class="flex-shrink-0">
+                <div
+                  class="w-12 h-12 bg-gradient-to-br from-primary-300 to-primary-500 rounded-xl flex items-center justify-center shadow-lg"
+                >
+                  <UIcon
+                    :name="getFileTypeIcon(file.mimeType)"
+                    class="w-6 h-6 text-white"
+                  />
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3
+                  class="font-semibold text-gray-900 text-base leading-tight mb-1 line-clamp-2"
+                  :title="file.originalFilename"
+                >
+                  {{ file.originalFilename }}
+                </h3>
+              </div>
+            </div>
 
             <!-- File Details -->
-            <div class="space-y-1 text-sm text-gray-600">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-file" class="w-4 h-4" />
-                <span>{{ formatFileSize(file.fileSize) }}</span>
+            <div
+              class="flex items-center justify-between text-sm text-gray-500 mb-3"
+            >
+              <div class="flex items-center gap-1">
+                <UIcon name="i-lucide-hard-drive" class="w-4 h-4" />
+                <span class="font-medium">{{
+                  formatFileSize(file.fileSize)
+                }}</span>
               </div>
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-calendar" class="w-4 h-4" />
+              <div class="flex items-center gap-1">
+                <UIcon name="i-lucide-calendar-days" class="w-4 h-4" />
                 <span>{{ new Date(file.createdAt).toLocaleDateString() }}</span>
               </div>
             </div>
 
             <!-- Remarks -->
-            <div v-if="file.remarks" class="mt-3 pt-3 border-t border-gray-100">
+            <div
+              v-if="file.remarks"
+              class="mt-auto pt-3 border-t border-gray-100"
+            >
               <p
-                class="text-sm text-gray-600 line-clamp-2"
+                class="text-sm text-gray-600 line-clamp-2 leading-relaxed"
                 :title="file.remarks"
               >
                 {{ file.remarks }}
               </p>
             </div>
-          </div>
+          </UCard>
         </div>
 
         <!-- Results Info -->
@@ -296,20 +326,27 @@ onMounted(() => {
         <!-- Empty State -->
         <div
           v-if="!isLoading && filteredFiles.length === 0 && !searchQuery"
-          class="text-center py-12"
+          class="text-center py-16"
         >
-          <UIcon
-            name="i-lucide-folder-open"
-            class="w-16 h-16 mx-auto text-gray-300 mb-4"
-          />
-          <h3 class="text-xl font-medium text-gray-900 mb-2">
+          <div
+            class="bg-gradient-to-br from-primary-300 to-primary-500 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <UIcon name="i-lucide-folder-open" class="w-12 h-12 text-white" />
+          </div>
+          <h3 class="text-2xl font-semibold text-gray-900 mb-3">
             No documents found
           </h3>
-          <p class="text-gray-500 mb-6">
+          <p class="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
             Get started by uploading your first
-            {{ categoryTitle.toLowerCase() }}.
+            {{ categoryTitle.toLowerCase() }} to build this category.
           </p>
-          <UButton @click="openUploadModal" icon="i-lucide-plus" size="lg">
+          <UButton
+            v-if="isAdmin"
+            @click="openUploadModal"
+            icon="i-lucide-plus"
+            size="lg"
+            class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+          >
             Upload Document
           </UButton>
         </div>
@@ -322,17 +359,20 @@ onMounted(() => {
             filteredFiles.length === 0 &&
             searchQuery
           "
-          class="text-center py-12"
+          class="text-center py-16"
         >
-          <UIcon
-            name="i-lucide-search-x"
-            class="w-16 h-16 mx-auto text-gray-300 mb-4"
-          />
-          <h3 class="text-xl font-medium text-gray-900 mb-2">
+          <div
+            class="bg-gradient-to-br from-amber-50 to-orange-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <UIcon name="i-lucide-search-x" class="w-12 h-12 text-amber-500" />
+          </div>
+          <h3 class="text-2xl font-semibold text-gray-900 mb-3">
             No matching documents found
           </h3>
-          <p class="text-gray-500 mb-6">Try adjusting your search terms.</p>
-          <UButton @click="searchQuery = ''" variant="outline">
+          <p class="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
+            Try adjusting your search terms to find what you're looking for.
+          </p>
+          <UButton @click="searchQuery = ''" variant="outline" size="lg">
             Clear Search
           </UButton>
         </div>

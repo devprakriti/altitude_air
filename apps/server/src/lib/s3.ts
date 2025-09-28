@@ -42,3 +42,22 @@ export const getMimeType = (extension: string): string => {
   };
   return mimeTypes[extension] || "application/octet-stream";
 };
+
+export const generatePresignedUrl = async (
+  fileKey: string,
+  expiresIn: number = 3600, // 1 hour default
+  filename?: string
+): Promise<string> => {
+  try {
+    // Generate presigned URL for download
+    const presignedUrl = await s3Client.presign(fileKey, {
+      expiresIn,
+      method: "GET"
+    });
+    
+    return presignedUrl;
+  } catch (error) {
+    console.error("Failed to generate presigned URL:", error);
+    throw new Error("Failed to generate download URL");
+  }
+};

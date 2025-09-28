@@ -5,7 +5,7 @@ import { technicalLibraryFiles } from "../db/schema";
 import { checkTechnicalLibraryPermission } from "../lib/access-control";
 import { authPlugin } from "../lib/auth";
 import { sanitizeFilename, validateFile } from "../lib/file-security";
-import { getMimeType, s3Client } from "../lib/s3";
+import { generatePresignedUrl, getMimeType, s3Client } from "../lib/s3";
 
 export const technicalLibraryRouter = new Elysia({
   prefix: "/technical-library",
@@ -228,22 +228,25 @@ export const technicalLibraryRouter = new Elysia({
           return { success: false, error: permissionCheck.error };
         }
 
-        // Get file from S3
-        const s3File = s3Client.file(file.fileKey);
-        const fileData = await s3File.arrayBuffer();
+        // Generate presigned URL for direct S3 download
+        const presignedUrl = await generatePresignedUrl(
+          file.fileKey,
+          3600, // 1 hour expiration
+          file.originalFilename
+        );
 
-        // Set appropriate headers
-        set.headers = {
-          "Content-Type": file.mimeType,
-          "Content-Length": file.fileSize.toString(),
-          "Content-Disposition": `attachment; filename="${file.originalFilename}"`,
-          "Cache-Control": "private, max-age=3600",
+        return {
+          success: true,
+          data: {
+            downloadUrl: presignedUrl,
+            filename: file.originalFilename,
+            fileSize: file.fileSize,
+            mimeType: file.mimeType,
+          },
         };
-
-        return new Response(fileData);
       } catch (_error) {
         set.status = 500;
-        return { success: false, error: "Failed to download file" };
+        return { success: false, error: "Failed to generate download URL" };
       }
     },
     {

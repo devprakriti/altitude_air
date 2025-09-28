@@ -156,7 +156,7 @@ const technicalServicesLinks = {
   label: "Technical Services",
   icon: "i-lucide-cog",
   type: "trigger" as const,
-  defaultOpen: true,
+  defaultOpen: false,
   children: [
     {
       label: "Website Visit Log",
@@ -271,7 +271,7 @@ const fleetManagementLinks = {
   label: "Fleet Management",
   icon: "i-lucide-plane",
   type: "trigger" as const,
-  defaultOpen: true,
+  defaultOpen: false,
   children: [
     {
       label: "Helicopter Overview",
@@ -296,7 +296,7 @@ const settingsSupportLinks = {
   label: "Settings / Support",
   icon: "i-lucide-settings",
   type: "trigger" as const,
-  defaultOpen: true,
+  defaultOpen: false,
   children: [
     {
       label: "System Configuration",
