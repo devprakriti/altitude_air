@@ -64,7 +64,12 @@ function closeModal() {
         <UButton @click="closeModal" variant="outline" :disabled="isLoading">
           Cancel
         </UButton>
-        <UButton @click="handleDelete" color="red" :loading="isLoading">
+        <UButton
+          @click="handleDelete"
+          color="error"
+          variant="solid"
+          :loading="isLoading"
+        >
           Delete
         </UButton>
       </div>

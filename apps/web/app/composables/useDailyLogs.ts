@@ -242,6 +242,68 @@ export const useDailyLogs = () => {
     fetchLogs()
   }
 
+  const exportToCSV = async (additionalParams?: Record<string, any>) => {
+    try {
+      const queryParams = new URLSearchParams()
+      
+      // Add current filters
+      Object.entries({ ...filters.value, ...additionalParams }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value))
+        }
+      })
+
+      // Use direct fetch since Eden might not have the export endpoint properly typed
+      const config = useRuntimeConfig()
+      const serverUrl = config.public.serverURL
+      const exportUrl = `${serverUrl}/daily-logs/export?${queryParams.toString()}`
+      
+      const response = await fetch(exportUrl, {
+        method: 'GET',
+        credentials: 'include', // Important for auth cookies
+        headers: {
+          'Accept': 'text/csv',
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const csvData = await response.text()
+      
+      if (csvData) {
+        // Create blob and download
+        const blob = new Blob([csvData], { type: 'text/csv' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `daily-logs-${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        
+        toast.add({
+          title: 'Export successful',
+          description: 'Daily logs exported to CSV',
+          color: 'success'
+        })
+        return true
+      } else {
+        throw new Error('No CSV data received')
+      }
+    } catch (err: any) {
+      console.error('Export error:', err)
+      toast.add({
+        title: 'Export failed',
+        description: err.message || 'Failed to export daily logs',
+        color: 'error'
+      })
+      return false
+    }
+  }
+
   const paginationInfo = computed(() => ({
     currentPage: currentPage.value,
     totalPages: totalPages.value,
@@ -269,6 +331,7 @@ export const useDailyLogs = () => {
     setFilters,
     setPage,
     setPageSize,
-    clearFilters
+    clearFilters,
+    exportToCSV
   }
 }

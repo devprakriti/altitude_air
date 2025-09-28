@@ -21,7 +21,7 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const { createLog, updateLog, logs, fetchLogs } = useDailyLogs();
+const { createLog, updateLog, logs, fetchLogs, isLoading } = useDailyLogs();
 const toast = useToast();
 
 // Zod schema for validation
@@ -381,7 +381,7 @@ onMounted(() => {
         <!-- Form Actions -->
         <div class="flex justify-end gap-3 pt-6">
           <UButton @click="handleClose" variant="outline"> Cancel </UButton>
-          <UButton type="submit">
+          <UButton type="submit" :loading="isLoading">
             {{ isEditMode ? "Update" : "Create" }} Daily Log
           </UButton>
         </div>

@@ -15,6 +15,13 @@
       "when": 1758600972307,
       "tag": "0001_clumsy_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758777465048,
+      "tag": "0002_shocking_mandrill",
+      "breakpoints": true
     }
   ]
 }

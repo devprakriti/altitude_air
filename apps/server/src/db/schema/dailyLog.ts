@@ -6,8 +6,8 @@ export const dailyLog = pgTable("daily_log", {
 	id: serial("id").primaryKey(),
 	recordDate: date("record_date").notNull(),
 	tlpNo: text("tlp_no").notNull(), // Tail Number or Aircraft ID
-	hoursFlownAirframe: decimal("hours_flown_airframe", { precision: 10, scale: 2 }),
-	hoursFlownEngine: decimal("hours_flown_engine", { precision: 10, scale: 2 }),
+	hoursFlownAirframe: text("hours_flown_airframe"),
+	hoursFlownEngine: text("hours_flown_engine"),
 	landings: integer("landings"),
 	tc: integer("tc"), // Total Cycles
 	noOfStarts: integer("no_of_starts"),

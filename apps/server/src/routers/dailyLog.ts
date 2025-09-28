@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { eq, and, desc, count, gte, lte, like, sql, sum, gt } from "drizzle-orm";
+import { eq, and, desc, count, gte, lte, like, sql, sum, gt, lt } from "drizzle-orm";
 import { db } from "../db";
 import { dailyLog } from "../db/schema/dailyLog";
 import { commonErrors } from "../lib/error-handler";
@@ -13,31 +13,31 @@ function timeToDecimal(timeStr: string): number {
 	return hours + (minutes / 60);
 }
 
-// Helper function to calculate totals for a given TLP and date
-async function calculateTotals(tlpNo: string, recordDate: string, organizationId: string) {
-	// Get all logs for this TLP up to and including the record date
-	const previousLogs = await db
+// Helper function to calculate totals based on previous day's record
+async function calculateTotals(recordDate: string, organizationId: string, currentLogData?: any) {
+	// Find the most recent log before the current date
+	const previousLog = await db
 		.select({
-			hoursFlownAirframe: dailyLog.hoursFlownAirframe,
-			hoursFlownEngine: dailyLog.hoursFlownEngine,
-			landings: dailyLog.landings,
-			tc: dailyLog.tc,
-			noOfStarts: dailyLog.noOfStarts,
-			ggCycle: dailyLog.ggCycle,
-			ftCycle: dailyLog.ftCycle,
+			totalAirframeHr: dailyLog.totalAirframeHr,
+			totalEngineHrTsn: dailyLog.totalEngineHrTsn,
+			totalLandings: dailyLog.totalLandings,
+			totalTc: dailyLog.totalTc,
+			totalNoOfStarts: dailyLog.totalNoOfStarts,
+			totalGgCycleTsn: dailyLog.totalGgCycleTsn,
+			totalFtCycleTsn: dailyLog.totalFtCycleTsn,
 		})
 		.from(dailyLog)
 		.where(
 			and(
-				eq(dailyLog.tlpNo, tlpNo),
 				eq(dailyLog.organizationId, organizationId),
-				lte(dailyLog.recordDate, recordDate),
+				lt(dailyLog.recordDate, recordDate),
 				eq(dailyLog.status, true)
 			)
 		)
-		.orderBy(dailyLog.recordDate);
+		.orderBy(desc(dailyLog.recordDate))
+		.limit(1);
 
-	// Calculate totals
+	// Start with previous totals or zero if no previous log
 	let totalAirframeHr = 0;
 	let totalEngineHrTsn = 0;
 	let totalLandings = 0;
@@ -46,27 +46,39 @@ async function calculateTotals(tlpNo: string, recordDate: string, organizationId
 	let totalGgCycleTsn = 0;
 	let totalFtCycleTsn = 0;
 
-	for (const log of previousLogs) {
-		if (log.hoursFlownAirframe) {
-			totalAirframeHr += timeToDecimal(log.hoursFlownAirframe);
+	if (previousLog.length > 0) {
+		const prev = previousLog[0];
+		totalAirframeHr = parseFloat(prev.totalAirframeHr || '0');
+		totalEngineHrTsn = parseFloat(prev.totalEngineHrTsn || '0');
+		totalLandings = prev.totalLandings || 0;
+		totalTc = prev.totalTc || 0;
+		totalNoOfStarts = prev.totalNoOfStarts || 0;
+		totalGgCycleTsn = prev.totalGgCycleTsn || 0;
+		totalFtCycleTsn = prev.totalFtCycleTsn || 0;
+	}
+
+	// Add current log data if provided
+	if (currentLogData) {
+		if (currentLogData.hoursFlownAirframe) {
+			totalAirframeHr += timeToDecimal(currentLogData.hoursFlownAirframe);
 		}
-		if (log.hoursFlownEngine) {
-			totalEngineHrTsn += timeToDecimal(log.hoursFlownEngine);
+		if (currentLogData.hoursFlownEngine) {
+			totalEngineHrTsn += timeToDecimal(currentLogData.hoursFlownEngine);
 		}
-		if (log.landings) {
-			totalLandings += log.landings;
+		if (currentLogData.landings) {
+			totalLandings += currentLogData.landings;
 		}
-		if (log.tc) {
-			totalTc += log.tc;
+		if (currentLogData.tc) {
+			totalTc += currentLogData.tc;
 		}
-		if (log.noOfStarts) {
-			totalNoOfStarts += log.noOfStarts;
+		if (currentLogData.noOfStarts) {
+			totalNoOfStarts += currentLogData.noOfStarts;
 		}
-		if (log.ggCycle) {
-			totalGgCycleTsn += log.ggCycle;
+		if (currentLogData.ggCycle) {
+			totalGgCycleTsn += currentLogData.ggCycle;
 		}
-		if (log.ftCycle) {
-			totalFtCycleTsn += log.ftCycle;
+		if (currentLogData.ftCycle) {
+			totalFtCycleTsn += currentLogData.ftCycle;
 		}
 	}
 
@@ -81,15 +93,32 @@ async function calculateTotals(tlpNo: string, recordDate: string, organizationId
 	};
 }
 
-// Helper function to recalculate totals for all logs after a given date for a specific TLP
-async function recalculateTotalsAfterDate(tlpNo: string, recordDate: string, organizationId: string) {
-	// Get all logs for this TLP after the given date
+// Helper function to recalculate totals for affected logs after a given date
+async function recalculateTotalsAfterDate(recordDate: string, organizationId: string) {
+	// Get all logs after the given date, ordered by date
 	const subsequentLogs = await db
-		.select({ id: dailyLog.id, recordDate: dailyLog.recordDate })
+		.select({ 
+			id: dailyLog.id, 
+			recordDate: dailyLog.recordDate,
+			hoursFlownAirframe: dailyLog.hoursFlownAirframe,
+			hoursFlownEngine: dailyLog.hoursFlownEngine,
+			landings: dailyLog.landings,
+			tc: dailyLog.tc,
+			noOfStarts: dailyLog.noOfStarts,
+			ggCycle: dailyLog.ggCycle,
+			ftCycle: dailyLog.ftCycle,
+			// Current totals for comparison
+			totalAirframeHr: dailyLog.totalAirframeHr,
+			totalEngineHrTsn: dailyLog.totalEngineHrTsn,
+			totalLandings: dailyLog.totalLandings,
+			totalTc: dailyLog.totalTc,
+			totalNoOfStarts: dailyLog.totalNoOfStarts,
+			totalGgCycleTsn: dailyLog.totalGgCycleTsn,
+			totalFtCycleTsn: dailyLog.totalFtCycleTsn,
+		})
 		.from(dailyLog)
 		.where(
 			and(
-				eq(dailyLog.tlpNo, tlpNo),
 				eq(dailyLog.organizationId, organizationId),
 				gt(dailyLog.recordDate, recordDate),
 				eq(dailyLog.status, true)
@@ -97,23 +126,56 @@ async function recalculateTotalsAfterDate(tlpNo: string, recordDate: string, org
 		)
 		.orderBy(dailyLog.recordDate);
 
-	// Recalculate totals for each subsequent log
+	// Recalculate totals for each subsequent log only if they would change
 	for (const log of subsequentLogs) {
-		const totals = await calculateTotals(tlpNo, log.recordDate, organizationId);
+		const newTotals = await calculateTotals(log.recordDate, organizationId, log);
 		
-		await db
-			.update(dailyLog)
-			.set({
-				totalAirframeHr: totals.totalAirframeHr,
-				totalEngineHrTsn: totals.totalEngineHrTsn,
-				totalLandings: totals.totalLandings,
-				totalTc: totals.totalTc,
-				totalNoOfStarts: totals.totalNoOfStarts,
-				totalGgCycleTsn: totals.totalGgCycleTsn,
-				totalFtCycleTsn: totals.totalFtCycleTsn,
-				updatedAt: new Date()
-			})
-			.where(eq(dailyLog.id, log.id));
+		// Check if any totals would actually change
+		const currentTotals = {
+			totalAirframeHr: parseFloat(log.totalAirframeHr || '0'),
+			totalEngineHrTsn: parseFloat(log.totalEngineHrTsn || '0'),
+			totalLandings: log.totalLandings || 0,
+			totalTc: log.totalTc || 0,
+			totalNoOfStarts: log.totalNoOfStarts || 0,
+			totalGgCycleTsn: log.totalGgCycleTsn || 0,
+			totalFtCycleTsn: log.totalFtCycleTsn || 0,
+		};
+
+		const newTotalsParsed = {
+			totalAirframeHr: parseFloat(newTotals.totalAirframeHr),
+			totalEngineHrTsn: parseFloat(newTotals.totalEngineHrTsn),
+			totalLandings: newTotals.totalLandings,
+			totalTc: newTotals.totalTc,
+			totalNoOfStarts: newTotals.totalNoOfStarts,
+			totalGgCycleTsn: newTotals.totalGgCycleTsn,
+			totalFtCycleTsn: newTotals.totalFtCycleTsn,
+		};
+
+		// Only update if totals have changed
+		const hasChanges = 
+			currentTotals.totalAirframeHr !== newTotalsParsed.totalAirframeHr ||
+			currentTotals.totalEngineHrTsn !== newTotalsParsed.totalEngineHrTsn ||
+			currentTotals.totalLandings !== newTotalsParsed.totalLandings ||
+			currentTotals.totalTc !== newTotalsParsed.totalTc ||
+			currentTotals.totalNoOfStarts !== newTotalsParsed.totalNoOfStarts ||
+			currentTotals.totalGgCycleTsn !== newTotalsParsed.totalGgCycleTsn ||
+			currentTotals.totalFtCycleTsn !== newTotalsParsed.totalFtCycleTsn;
+
+		if (hasChanges) {
+			await db
+				.update(dailyLog)
+				.set({
+					totalAirframeHr: newTotals.totalAirframeHr,
+					totalEngineHrTsn: newTotals.totalEngineHrTsn,
+					totalLandings: newTotals.totalLandings,
+					totalTc: newTotals.totalTc,
+					totalNoOfStarts: newTotals.totalNoOfStarts,
+					totalGgCycleTsn: newTotals.totalGgCycleTsn,
+					totalFtCycleTsn: newTotals.totalFtCycleTsn,
+					updatedAt: new Date()
+				})
+				.where(eq(dailyLog.id, log.id));
+		}
 	}
 }
 
@@ -125,18 +187,170 @@ export const dailyLogRouter = new Elysia({
 })
 	.use(authPlugin)
 	.get("/", async ({ query, user, session }) => {
-		const { tlpNo, dateFrom, dateTo, page = 1, pageSize = 10 } = query;
+		const { 
+			search, // General search across multiple fields
+			tlpNo, 
+			dateFrom, 
+			dateTo, 
+			remarks,
+			usage,
+			// Numeric range filters
+			hoursFlownAirframeMin,
+			hoursFlownAirframeMax,
+			hoursFlownEngineMin,
+			hoursFlownEngineMax,
+			landingsMin,
+			landingsMax,
+			tcMin,
+			tcMax,
+			noOfStartsMin,
+			noOfStartsMax,
+			ggCycleMin,
+			ggCycleMax,
+			ftCycleMin,
+			ftCycleMax,
+			// Total range filters
+			totalAirframeHrMin,
+			totalAirframeHrMax,
+			totalEngineHrTsnMin,
+			totalEngineHrTsnMax,
+			totalLandingsMin,
+			totalLandingsMax,
+			// Sorting
+			sortBy = 'recordDate',
+			sortOrder = 'desc',
+			// Pagination
+			page = 1, 
+			pageSize = 10 
+		} = query;
 
 		// Build optimized where conditions
 		const whereConditions = [eq(dailyLog.organizationId, session.activeOrganizationId || 'default')];
 		
-		// Add search conditions
+		// General search across multiple fields
+		if (search) {
+			const searchConditions = [
+				like(dailyLog.tlpNo, `%${search}%`),
+				like(dailyLog.remarks, `%${search}%`),
+				like(dailyLog.usage, `%${search}%`)
+			];
+			whereConditions.push(sql`(${searchConditions.join(' OR ')})`);
+		}
+		
+		// Specific field searches
 		if (tlpNo) {
 			whereConditions.push(...buildSearchConditions(['tlp_no'], tlpNo));
 		}
 		
-		// Add date range conditions
+		if (remarks) {
+			whereConditions.push(like(dailyLog.remarks, `%${remarks}%`));
+		}
+		
+		if (usage) {
+			whereConditions.push(like(dailyLog.usage, `%${usage}%`));
+		}
+		
+		// Date range conditions
 		whereConditions.push(...buildDateRangeConditions('record_date', dateFrom, dateTo));
+		
+		// Numeric range filters for current values
+		if (hoursFlownAirframeMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 2) AS INTEGER)`, hoursFlownAirframeMin * 60));
+		}
+		if (hoursFlownAirframeMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 2) AS INTEGER)`, hoursFlownAirframeMax * 60));
+		}
+		
+		if (hoursFlownEngineMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 2) AS INTEGER)`, hoursFlownEngineMin * 60));
+		}
+		if (hoursFlownEngineMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 2) AS INTEGER)`, hoursFlownEngineMax * 60));
+		}
+		
+		if (landingsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.landings, landingsMin));
+		}
+		if (landingsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.landings, landingsMax));
+		}
+		
+		if (tcMin !== undefined) {
+			whereConditions.push(gte(dailyLog.tc, tcMin));
+		}
+		if (tcMax !== undefined) {
+			whereConditions.push(lte(dailyLog.tc, tcMax));
+		}
+		
+		if (noOfStartsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.noOfStarts, noOfStartsMin));
+		}
+		if (noOfStartsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.noOfStarts, noOfStartsMax));
+		}
+		
+		if (ggCycleMin !== undefined) {
+			whereConditions.push(gte(dailyLog.ggCycle, ggCycleMin));
+		}
+		if (ggCycleMax !== undefined) {
+			whereConditions.push(lte(dailyLog.ggCycle, ggCycleMax));
+		}
+		
+		if (ftCycleMin !== undefined) {
+			whereConditions.push(gte(dailyLog.ftCycle, ftCycleMin));
+		}
+		if (ftCycleMax !== undefined) {
+			whereConditions.push(lte(dailyLog.ftCycle, ftCycleMax));
+		}
+		
+		// Total range filters
+		if (totalAirframeHrMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(${dailyLog.totalAirframeHr} AS DECIMAL)`, totalAirframeHrMin));
+		}
+		if (totalAirframeHrMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(${dailyLog.totalAirframeHr} AS DECIMAL)`, totalAirframeHrMax));
+		}
+		
+		if (totalEngineHrTsnMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(${dailyLog.totalEngineHrTsn} AS DECIMAL)`, totalEngineHrTsnMin));
+		}
+		if (totalEngineHrTsnMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(${dailyLog.totalEngineHrTsn} AS DECIMAL)`, totalEngineHrTsnMax));
+		}
+		
+		if (totalLandingsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.totalLandings, totalLandingsMin));
+		}
+		if (totalLandingsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.totalLandings, totalLandingsMax));
+		}
+
+		// Build dynamic sorting
+		const sortField = sortBy as keyof typeof dailyLog;
+		const sortDirection = sortOrder === 'asc' ? 'asc' : 'desc';
+		
+		let orderByClause;
+		if (sortField === 'hoursFlownAirframe' || sortField === 'hoursFlownEngine') {
+			// Special handling for time fields - convert to minutes for proper sorting
+			const timeField = sortField === 'hoursFlownAirframe' ? dailyLog.hoursFlownAirframe : dailyLog.hoursFlownEngine;
+			orderByClause = sortDirection === 'asc' 
+				? sql`CAST(SPLIT_PART(${timeField}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${timeField}, ':', 2) AS INTEGER) ASC`
+				: sql`CAST(SPLIT_PART(${timeField}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${timeField}, ':', 2) AS INTEGER) DESC`;
+		} else if (sortField === 'totalAirframeHr' || sortField === 'totalEngineHrTsn') {
+			// Special handling for total decimal fields
+			const totalField = sortField === 'totalAirframeHr' ? dailyLog.totalAirframeHr : dailyLog.totalEngineHrTsn;
+			orderByClause = sortDirection === 'asc' 
+				? sql`CAST(${totalField} AS DECIMAL) ASC`
+				: sql`CAST(${totalField} AS DECIMAL) DESC`;
+		} else if (dailyLog[sortField]) {
+			// Standard field sorting
+			orderByClause = sortDirection === 'asc' 
+				? sql`${dailyLog[sortField]} ASC`
+				: sql`${dailyLog[sortField]} DESC`;
+		} else {
+			// Default fallback
+			orderByClause = desc(dailyLog.recordDate);
+		}
 
 		// Optimized single query with window function
 		const logs = await db
@@ -169,7 +383,7 @@ export const dailyLogRouter = new Elysia({
 			})
 			.from(dailyLog)
 			.where(and(...whereConditions))
-			.orderBy(desc(dailyLog.recordDate), desc(dailyLog.createdAt))
+			.orderBy(orderByClause, desc(dailyLog.createdAt))
 			.limit(parseInt(pageSize.toString()))
 			.offset((parseInt(page.toString()) - 1) * parseInt(pageSize.toString()));
 
@@ -188,9 +402,43 @@ export const dailyLogRouter = new Elysia({
 	}, {
 		auth: true,
 		query: t.Object({
+			// General search
+			search: t.Optional(t.String()),
 			tlpNo: t.Optional(t.String()),
 			dateFrom: t.Optional(t.String()),
 			dateTo: t.Optional(t.String()),
+			remarks: t.Optional(t.String()),
+			usage: t.Optional(t.String()),
+			
+			// Numeric range filters for current values
+			hoursFlownAirframeMin: t.Optional(t.Numeric()),
+			hoursFlownAirframeMax: t.Optional(t.Numeric()),
+			hoursFlownEngineMin: t.Optional(t.Numeric()),
+			hoursFlownEngineMax: t.Optional(t.Numeric()),
+			landingsMin: t.Optional(t.Numeric()),
+			landingsMax: t.Optional(t.Numeric()),
+			tcMin: t.Optional(t.Numeric()),
+			tcMax: t.Optional(t.Numeric()),
+			noOfStartsMin: t.Optional(t.Numeric()),
+			noOfStartsMax: t.Optional(t.Numeric()),
+			ggCycleMin: t.Optional(t.Numeric()),
+			ggCycleMax: t.Optional(t.Numeric()),
+			ftCycleMin: t.Optional(t.Numeric()),
+			ftCycleMax: t.Optional(t.Numeric()),
+			
+			// Total range filters
+			totalAirframeHrMin: t.Optional(t.Numeric()),
+			totalAirframeHrMax: t.Optional(t.Numeric()),
+			totalEngineHrTsnMin: t.Optional(t.Numeric()),
+			totalEngineHrTsnMax: t.Optional(t.Numeric()),
+			totalLandingsMin: t.Optional(t.Numeric()),
+			totalLandingsMax: t.Optional(t.Numeric()),
+			
+			// Sorting
+			sortBy: t.Optional(t.String()),
+			sortOrder: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')])),
+			
+			// Pagination
 			page: t.Optional(t.Numeric()),
 			pageSize: t.Optional(t.Numeric())
 		}),
@@ -294,11 +542,11 @@ export const dailyLogRouter = new Elysia({
 		}
 	})
 	.post("/", async ({ body, user, session }) => {
-		// Calculate totals based on previous logs
+		// Calculate totals based on previous day's record + current log data
 		const totals = await calculateTotals(
-			body.tlpNo,
 			body.recordDate,
-			session.activeOrganizationId || 'default'
+			session.activeOrganizationId || 'default',
+			body
 		);
 
 		const created = await db
@@ -330,6 +578,9 @@ export const dailyLogRouter = new Elysia({
 		if (!created.length) {
 			throw new Error("Failed to create daily log");
 		}
+
+		// Recalculate totals for all logs after this date
+		await recalculateTotalsAfterDate(body.recordDate, session.activeOrganizationId || 'default');
 
 		return {
 			success: true,
@@ -388,9 +639,9 @@ export const dailyLogRouter = new Elysia({
 		}
 	})
 	.put("/:id", async ({ params, body, user, session }) => {
-		// Get the existing log to determine TLP and date for recalculation
+		// Get the existing log to determine date for recalculation
 		const existingLog = await db
-			.select({ tlpNo: dailyLog.tlpNo, recordDate: dailyLog.recordDate })
+			.select({ recordDate: dailyLog.recordDate })
 			.from(dailyLog)
 			.where(
 				and(
@@ -404,15 +655,14 @@ export const dailyLogRouter = new Elysia({
 			throw new Error("Daily log not found");
 		}
 
-		// Use the TLP and date from the existing log or from the body if being updated
-		const tlpNo = body.tlpNo || existingLog[0].tlpNo;
+		// Use the date from the existing log or from the body if being updated
 		const recordDate = body.recordDate || existingLog[0].recordDate;
 
-		// Calculate totals based on the TLP and date
+		// Calculate totals based on previous day's record + current log data
 		const totals = await calculateTotals(
-			tlpNo,
 			recordDate,
-			session.activeOrganizationId || 'default'
+			session.activeOrganizationId || 'default',
+			body
 		);
 
 		const updated = await db
@@ -440,9 +690,9 @@ export const dailyLogRouter = new Elysia({
 			throw new Error("Failed to update daily log or log not found");
 		}
 
-		// Recalculate totals for all subsequent logs if date or TLP changed
-		if (body.recordDate || body.tlpNo) {
-			await recalculateTotalsAfterDate(tlpNo, recordDate, session.activeOrganizationId || 'default');
+		// Recalculate totals for all subsequent logs if date changed
+		if (body.recordDate) {
+			await recalculateTotalsAfterDate(recordDate, session.activeOrganizationId || 'default');
 		}
 
 		return {
@@ -505,7 +755,7 @@ export const dailyLogRouter = new Elysia({
 	.delete("/:id", async ({ params, user, session }) => {
 		// Get the log details before deleting to recalculate subsequent logs
 		const logToDelete = await db
-			.select({ tlpNo: dailyLog.tlpNo, recordDate: dailyLog.recordDate })
+			.select({ recordDate: dailyLog.recordDate })
 			.from(dailyLog)
 			.where(
 				and(
@@ -535,7 +785,6 @@ export const dailyLogRouter = new Elysia({
 
 		// Recalculate totals for all subsequent logs
 		await recalculateTotalsAfterDate(
-			logToDelete[0].tlpNo,
 			logToDelete[0].recordDate,
 			session.activeOrganizationId || 'default'
 		);
@@ -557,5 +806,229 @@ export const dailyLogRouter = new Elysia({
 		detail: {
 			summary: "Delete daily log",
 			description: "Delete a daily log entry by its ID",
+		}
+	})
+	.get("/export", async ({ query, user, session, set }) => {
+		// Reuse the same filtering logic as the main GET endpoint
+		const { 
+			search, tlpNo, dateFrom, dateTo, remarks, usage,
+			hoursFlownAirframeMin, hoursFlownAirframeMax, hoursFlownEngineMin, hoursFlownEngineMax,
+			landingsMin, landingsMax, tcMin, tcMax, noOfStartsMin, noOfStartsMax,
+			ggCycleMin, ggCycleMax, ftCycleMin, ftCycleMax,
+			totalAirframeHrMin, totalAirframeHrMax, totalEngineHrTsnMin, totalEngineHrTsnMax,
+			totalLandingsMin, totalLandingsMax,
+			sortBy = 'recordDate', sortOrder = 'desc'
+		} = query;
+
+		// Build the same where conditions as the main endpoint
+		const whereConditions = [eq(dailyLog.organizationId, session.activeOrganizationId || 'default')];
+		
+		// Apply all the same filters (reusing the logic from above)
+		if (search) {
+			const searchConditions = [
+				like(dailyLog.tlpNo, `%${search}%`),
+				like(dailyLog.remarks, `%${search}%`),
+				like(dailyLog.usage, `%${search}%`)
+			];
+			whereConditions.push(sql`(${searchConditions.join(' OR ')})`);
+		}
+		
+		if (tlpNo) {
+			whereConditions.push(...buildSearchConditions(['tlp_no'], tlpNo));
+		}
+		
+		if (remarks) {
+			whereConditions.push(like(dailyLog.remarks, `%${remarks}%`));
+		}
+		
+		if (usage) {
+			whereConditions.push(like(dailyLog.usage, `%${usage}%`));
+		}
+		
+		whereConditions.push(...buildDateRangeConditions('record_date', dateFrom, dateTo));
+		
+		// Add all the numeric range filters (same as above)
+		if (hoursFlownAirframeMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 2) AS INTEGER)`, hoursFlownAirframeMin * 60));
+		}
+		if (hoursFlownAirframeMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownAirframe}, ':', 2) AS INTEGER)`, hoursFlownAirframeMax * 60));
+		}
+		
+		if (hoursFlownEngineMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 2) AS INTEGER)`, hoursFlownEngineMin * 60));
+		}
+		if (hoursFlownEngineMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${dailyLog.hoursFlownEngine}, ':', 2) AS INTEGER)`, hoursFlownEngineMax * 60));
+		}
+		
+		if (landingsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.landings, landingsMin));
+		}
+		if (landingsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.landings, landingsMax));
+		}
+		
+		if (tcMin !== undefined) {
+			whereConditions.push(gte(dailyLog.tc, tcMin));
+		}
+		if (tcMax !== undefined) {
+			whereConditions.push(lte(dailyLog.tc, tcMax));
+		}
+		
+		if (noOfStartsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.noOfStarts, noOfStartsMin));
+		}
+		if (noOfStartsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.noOfStarts, noOfStartsMax));
+		}
+		
+		if (ggCycleMin !== undefined) {
+			whereConditions.push(gte(dailyLog.ggCycle, ggCycleMin));
+		}
+		if (ggCycleMax !== undefined) {
+			whereConditions.push(lte(dailyLog.ggCycle, ggCycleMax));
+		}
+		
+		if (ftCycleMin !== undefined) {
+			whereConditions.push(gte(dailyLog.ftCycle, ftCycleMin));
+		}
+		if (ftCycleMax !== undefined) {
+			whereConditions.push(lte(dailyLog.ftCycle, ftCycleMax));
+		}
+		
+		if (totalAirframeHrMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(${dailyLog.totalAirframeHr} AS DECIMAL)`, totalAirframeHrMin));
+		}
+		if (totalAirframeHrMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(${dailyLog.totalAirframeHr} AS DECIMAL)`, totalAirframeHrMax));
+		}
+		
+		if (totalEngineHrTsnMin !== undefined) {
+			whereConditions.push(gte(sql`CAST(${dailyLog.totalEngineHrTsn} AS DECIMAL)`, totalEngineHrTsnMin));
+		}
+		if (totalEngineHrTsnMax !== undefined) {
+			whereConditions.push(lte(sql`CAST(${dailyLog.totalEngineHrTsn} AS DECIMAL)`, totalEngineHrTsnMax));
+		}
+		
+		if (totalLandingsMin !== undefined) {
+			whereConditions.push(gte(dailyLog.totalLandings, totalLandingsMin));
+		}
+		if (totalLandingsMax !== undefined) {
+			whereConditions.push(lte(dailyLog.totalLandings, totalLandingsMax));
+		}
+
+		// Build the same sorting logic
+		const sortField = sortBy as keyof typeof dailyLog;
+		const sortDirection = sortOrder === 'asc' ? 'asc' : 'desc';
+		
+		let orderByClause;
+		if (sortField === 'hoursFlownAirframe' || sortField === 'hoursFlownEngine') {
+			const timeField = sortField === 'hoursFlownAirframe' ? dailyLog.hoursFlownAirframe : dailyLog.hoursFlownEngine;
+			orderByClause = sortDirection === 'asc' 
+				? sql`CAST(SPLIT_PART(${timeField}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${timeField}, ':', 2) AS INTEGER) ASC`
+				: sql`CAST(SPLIT_PART(${timeField}, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(${timeField}, ':', 2) AS INTEGER) DESC`;
+		} else if (sortField === 'totalAirframeHr' || sortField === 'totalEngineHrTsn') {
+			const totalField = sortField === 'totalAirframeHr' ? dailyLog.totalAirframeHr : dailyLog.totalEngineHrTsn;
+			orderByClause = sortDirection === 'asc' 
+				? sql`CAST(${totalField} AS DECIMAL) ASC`
+				: sql`CAST(${totalField} AS DECIMAL) DESC`;
+		} else if (dailyLog[sortField]) {
+			orderByClause = sortDirection === 'asc' 
+				? sql`${dailyLog[sortField]} ASC`
+				: sql`${dailyLog[sortField]} DESC`;
+		} else {
+			orderByClause = desc(dailyLog.recordDate);
+		}
+
+		// Get all matching records (no pagination for export)
+		const logs = await db
+			.select()
+			.from(dailyLog)
+			.where(and(...whereConditions))
+			.orderBy(orderByClause, desc(dailyLog.createdAt));
+
+		// Generate CSV content
+		const headers = [
+			'ID', 'Record Date', 'TLP No', 'Hours Flown (Airframe)', 'Hours Flown (Engine)',
+			'Landings', 'TC', 'No of Starts', 'GG Cycle', 'FT Cycle', 'Usage',
+			'Total Airframe Hr', 'Total Engine Hr TSN', 'Total Landings', 'Total TC',
+			'Total No of Starts', 'Total GG Cycle TSN', 'Total FT Cycle TSN',
+			'Remarks', 'Status', 'Created At', 'Updated At'
+		];
+
+		const csvRows = logs.map(log => [
+			log.id,
+			log.recordDate,
+			log.tlpNo,
+			log.hoursFlownAirframe || '',
+			log.hoursFlownEngine || '',
+			log.landings || '',
+			log.tc || '',
+			log.noOfStarts || '',
+			log.ggCycle || '',
+			log.ftCycle || '',
+			log.usage || '',
+			log.totalAirframeHr || '',
+			log.totalEngineHrTsn || '',
+			log.totalLandings || '',
+			log.totalTc || '',
+			log.totalNoOfStarts || '',
+			log.totalGgCycleTsn || '',
+			log.totalFtCycleTsn || '',
+			`"${(log.remarks || '').replace(/"/g, '""')}"`, // Escape quotes in remarks
+			log.status ? 'Active' : 'Inactive',
+			log.createdAt.toISOString(),
+			log.updatedAt.toISOString()
+		]);
+
+		const csvContent = [headers, ...csvRows]
+			.map(row => row.join(','))
+			.join('\n');
+
+		// Set response headers for CSV download
+		set.headers['Content-Type'] = 'text/csv';
+		set.headers['Content-Disposition'] = `attachment; filename="daily-logs-${new Date().toISOString().split('T')[0]}.csv"`;
+
+		return csvContent;
+	}, {
+		auth: true,
+		query: t.Object({
+			// Same query parameters as the main GET endpoint
+			search: t.Optional(t.String()),
+			tlpNo: t.Optional(t.String()),
+			dateFrom: t.Optional(t.String()),
+			dateTo: t.Optional(t.String()),
+			remarks: t.Optional(t.String()),
+			usage: t.Optional(t.String()),
+			
+			hoursFlownAirframeMin: t.Optional(t.Numeric()),
+			hoursFlownAirframeMax: t.Optional(t.Numeric()),
+			hoursFlownEngineMin: t.Optional(t.Numeric()),
+			hoursFlownEngineMax: t.Optional(t.Numeric()),
+			landingsMin: t.Optional(t.Numeric()),
+			landingsMax: t.Optional(t.Numeric()),
+			tcMin: t.Optional(t.Numeric()),
+			tcMax: t.Optional(t.Numeric()),
+			noOfStartsMin: t.Optional(t.Numeric()),
+			noOfStartsMax: t.Optional(t.Numeric()),
+			ggCycleMin: t.Optional(t.Numeric()),
+			ggCycleMax: t.Optional(t.Numeric()),
+			ftCycleMin: t.Optional(t.Numeric()),
+			ftCycleMax: t.Optional(t.Numeric()),
+			
+			totalAirframeHrMin: t.Optional(t.Numeric()),
+			totalAirframeHrMax: t.Optional(t.Numeric()),
+			totalEngineHrTsnMin: t.Optional(t.Numeric()),
+			totalEngineHrTsnMax: t.Optional(t.Numeric()),
+			totalLandingsMin: t.Optional(t.Numeric()),
+			totalLandingsMax: t.Optional(t.Numeric()),
+			
+			sortBy: t.Optional(t.String()),
+			sortOrder: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')]))
+		}),
+		detail: {
+			summary: "Export daily logs to CSV",
+			description: "Export filtered daily logs to CSV format",
 		}
 	});
