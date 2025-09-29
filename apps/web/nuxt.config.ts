@@ -9,6 +9,15 @@ export default defineNuxtConfig({
   },
   debug: false,
   ssr: false,
+  colorMode: {
+    preference: "light",
+    storageKey: "color-mode",
+  },
+  icon: {
+    collections: ["lucide"],
+    provider: "server",
+    serverBundle: "local",
+  },
   runtimeConfig: {
     public: {
       apiURL:
