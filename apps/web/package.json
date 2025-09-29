@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.4.1",
-    "@iconify-json/lucide": "^1.2.66",
+    "@iconify-json/lucide": "^1.2.68",
     "@iconify-json/simple-icons": "^1.2.53",
     "@internationalized/date": "^3.9.0",
     "@nuxt/ui": "^4.0.0",
