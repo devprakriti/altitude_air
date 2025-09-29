@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { db } from "../db";
 import { technicalLibraryFiles } from "../db/schema";
-import { checkTechnicalLibraryPermission } from "../lib/access-control";
 import { authPlugin } from "../lib/auth";
 import { sanitizeFilename, validateFile } from "../lib/file-security";
 import { generatePresignedUrl, getMimeType, s3Client } from "../lib/s3";
@@ -25,19 +24,7 @@ export const technicalLibraryRouter = new Elysia({
           };
         }
 
-        // Check admin permission for upload
-        const organizationId = session.activeOrganizationId || "";
-        const permissionCheck = checkTechnicalLibraryPermission(
-          "write",
-          user.role || "user",
-          organizationId,
-          organizationId
-        );
-
-        if (!permissionCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: permissionCheck.error };
-        }
+        // Permission check is handled by the autoAccess macro
 
         // Validate file security
         const validation = await validateFile(file);
@@ -49,9 +36,9 @@ export const technicalLibraryRouter = new Elysia({
           };
         }
 
-        // Generate secure file key with organization prefix
+        // Generate secure file key
         const sanitizedFilename = sanitizeFilename(filename);
-        const fileKey = `technical-library/${session.activeOrganizationId}/${category}/${Date.now()}_${sanitizedFilename}`;
+        const fileKey = `technical-library/${category}/${Date.now()}_${sanitizedFilename}`;
 
         // Upload to S3
         await s3Client.write(fileKey, file, {
@@ -72,7 +59,6 @@ export const technicalLibraryRouter = new Elysia({
               validation.mimeType ||
               getMimeType(filename.split(".").pop() || ""),
             remarks: remarks || null,
-            organizationId,
             uploadedBy: user.id,
           })
           .returning();
@@ -121,33 +107,20 @@ export const technicalLibraryRouter = new Elysia({
       try {
         const { category } = query;
 
-        // Check permission for listing
-        const organizationId = session.activeOrganizationId || "";
-        const permissionCheck = checkTechnicalLibraryPermission(
-          "list",
-          user.role || "user",
-          organizationId,
-          organizationId
-        );
-
-        if (!permissionCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: permissionCheck.error };
-        }
+        // Permission check is handled by the autoAccess macro
 
         // Build query
-        const whereConditions = [
-          eq(technicalLibraryFiles.organizationId, organizationId),
-        ];
+        const whereConditions = [];
         if (category) {
           whereConditions.push(eq(technicalLibraryFiles.category, category));
         }
-        const whereClause = and(...whereConditions);
+        const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-        const files = await db
+        const dbQuery = db
           .select()
-          .from(technicalLibraryFiles)
-          .where(whereClause)
+          .from(technicalLibraryFiles);
+        
+        const files = await (whereClause ? dbQuery.where(whereClause) : dbQuery)
           .orderBy(technicalLibraryFiles.createdAt);
 
         return {
@@ -196,16 +169,10 @@ export const technicalLibraryRouter = new Elysia({
         const { id } = params;
 
         // Get file metadata
-        const organizationId = session.activeOrganizationId || "";
         const fileRecord = await db
           .select()
           .from(technicalLibraryFiles)
-          .where(
-            and(
-              eq(technicalLibraryFiles.id, Number.parseInt(id, 10)),
-              eq(technicalLibraryFiles.organizationId, organizationId)
-            )
-          )
+          .where(eq(technicalLibraryFiles.id, Number.parseInt(id, 10)))
           .limit(1);
 
         if (!fileRecord.length) {
@@ -215,18 +182,7 @@ export const technicalLibraryRouter = new Elysia({
 
         const file = fileRecord[0];
 
-        // Check permission for download
-        const permissionCheck = checkTechnicalLibraryPermission(
-          "read",
-          user.role || "user",
-          organizationId,
-          organizationId
-        );
-
-        if (!permissionCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: permissionCheck.error };
-        }
+        // Permission check is handled by the autoAccess macro
 
         // Generate presigned URL for direct S3 download
         const presignedUrl = await generatePresignedUrl(
@@ -267,30 +223,13 @@ export const technicalLibraryRouter = new Elysia({
       try {
         const { id } = params;
 
-        // Check admin permission for delete
-        const organizationId = session.activeOrganizationId || "";
-        const permissionCheck = checkTechnicalLibraryPermission(
-          "delete",
-          user.role || "user",
-          organizationId,
-          organizationId
-        );
-
-        if (!permissionCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: permissionCheck.error };
-        }
+        // Permission check is handled by the autoAccess macro
 
         // Get file metadata
         const fileRecord = await db
           .select()
           .from(technicalLibraryFiles)
-          .where(
-            and(
-              eq(technicalLibraryFiles.id, Number.parseInt(id, 10)),
-              eq(technicalLibraryFiles.organizationId, organizationId)
-            )
-          )
+          .where(eq(technicalLibraryFiles.id, Number.parseInt(id, 10)))
           .limit(1);
 
         if (!fileRecord.length) {

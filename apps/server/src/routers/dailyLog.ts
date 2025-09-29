@@ -21,7 +21,6 @@ function timeToDecimal(timeStr: string): number {
 // Helper function to calculate totals based on previous day's record
 async function calculateTotals(
   recordDate: string,
-  organizationId: string,
   currentLogData?: any
 ) {
   // Find the most recent log before the current date
@@ -38,7 +37,6 @@ async function calculateTotals(
     .from(dailyLog)
     .where(
       and(
-        eq(dailyLog.organizationId, organizationId),
         lt(dailyLog.recordDate, recordDate),
         eq(dailyLog.status, true)
       )
@@ -103,10 +101,7 @@ async function calculateTotals(
 }
 
 // Helper function to recalculate totals for affected logs after a given date
-async function recalculateTotalsAfterDate(
-  recordDate: string,
-  organizationId: string
-) {
+async function recalculateTotalsAfterDate(recordDate: string) {
   // Get all logs after the given date, ordered by date
   const subsequentLogs = await db
     .select({
@@ -131,7 +126,6 @@ async function recalculateTotalsAfterDate(
     .from(dailyLog)
     .where(
       and(
-        eq(dailyLog.organizationId, organizationId),
         gt(dailyLog.recordDate, recordDate),
         eq(dailyLog.status, true)
       )
@@ -142,7 +136,6 @@ async function recalculateTotalsAfterDate(
   for (const log of subsequentLogs) {
     const newTotals = await calculateTotals(
       log.recordDate,
-      organizationId,
       log
     );
 
@@ -243,9 +236,7 @@ export const dailyLogRouter = new Elysia({
       } = query;
 
       // Build optimized where conditions
-      const whereConditions = [
-        eq(dailyLog.organizationId, session.activeOrganizationId || "default"),
-      ];
+      const whereConditions = [];
 
       // General search across multiple fields
       if (search) {
@@ -451,7 +442,6 @@ export const dailyLogRouter = new Elysia({
           totalGgCycleTsn: dailyLog.totalGgCycleTsn,
           totalFtCycleTsn: dailyLog.totalFtCycleTsn,
           remarks: dailyLog.remarks,
-          organizationId: dailyLog.organizationId,
           createdBy: dailyLog.createdBy,
           status: dailyLog.status,
           createdAt: dailyLog.createdAt,
@@ -549,7 +539,6 @@ export const dailyLogRouter = new Elysia({
               totalGgCycleTsn: t.Union([t.Number(), t.Null()]),
               totalFtCycleTsn: t.Union([t.Number(), t.Null()]),
               remarks: t.Union([t.String(), t.Null()]),
-              organizationId: t.String(),
               createdBy: t.String(),
               status: t.Boolean(),
               createdAt: t.Date(),
@@ -573,15 +562,7 @@ export const dailyLogRouter = new Elysia({
       const log = await db
         .select()
         .from(dailyLog)
-        .where(
-          and(
-            eq(dailyLog.id, Number(params.id)),
-            eq(
-              dailyLog.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(dailyLog.id, Number(params.id)))
         .limit(1);
 
       if (!log.length) {
@@ -619,7 +600,6 @@ export const dailyLogRouter = new Elysia({
             totalGgCycleTsn: t.Union([t.Number(), t.Null()]),
             totalFtCycleTsn: t.Union([t.Number(), t.Null()]),
             remarks: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             createdBy: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
@@ -640,7 +620,6 @@ export const dailyLogRouter = new Elysia({
       // Calculate totals based on previous day's record + current log data
       const totals = await calculateTotals(
         body.recordDate,
-        session.activeOrganizationId || "default",
         body
       );
 
@@ -665,7 +644,6 @@ export const dailyLogRouter = new Elysia({
           totalGgCycleTsn: totals.totalGgCycleTsn,
           totalFtCycleTsn: totals.totalFtCycleTsn,
           remarks: body.remarks,
-          organizationId: session.activeOrganizationId || "default",
           createdBy: user.id,
         })
         .returning();
@@ -675,10 +653,7 @@ export const dailyLogRouter = new Elysia({
       }
 
       // Recalculate totals for all logs after this date
-      await recalculateTotalsAfterDate(
-        body.recordDate,
-        session.activeOrganizationId || "default"
-      );
+      await recalculateTotalsAfterDate(body.recordDate);
 
       return {
         success: true,
@@ -723,7 +698,6 @@ export const dailyLogRouter = new Elysia({
             totalGgCycleTsn: t.Union([t.Number(), t.Null()]),
             totalFtCycleTsn: t.Union([t.Number(), t.Null()]),
             remarks: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             createdBy: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
@@ -745,15 +719,7 @@ export const dailyLogRouter = new Elysia({
       const existingLog = await db
         .select({ recordDate: dailyLog.recordDate })
         .from(dailyLog)
-        .where(
-          and(
-            eq(dailyLog.id, Number(params.id)),
-            eq(
-              dailyLog.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(dailyLog.id, Number(params.id)))
         .limit(1);
 
       if (!existingLog.length) {
@@ -766,7 +732,6 @@ export const dailyLogRouter = new Elysia({
       // Calculate totals based on previous day's record + current log data
       const totals = await calculateTotals(
         recordDate,
-        session.activeOrganizationId || "default",
         body
       );
 
@@ -783,15 +748,7 @@ export const dailyLogRouter = new Elysia({
           totalFtCycleTsn: totals.totalFtCycleTsn,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(dailyLog.id, Number(params.id)),
-            eq(
-              dailyLog.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(dailyLog.id, Number(params.id)))
         .returning();
 
       if (!updated.length) {
@@ -800,10 +757,7 @@ export const dailyLogRouter = new Elysia({
 
       // Recalculate totals for all subsequent logs if date changed
       if (body.recordDate) {
-        await recalculateTotalsAfterDate(
-          recordDate,
-          session.activeOrganizationId || "default"
-        );
+        await recalculateTotalsAfterDate(recordDate);
       }
 
       return {
@@ -850,7 +804,6 @@ export const dailyLogRouter = new Elysia({
             totalGgCycleTsn: t.Union([t.Number(), t.Null()]),
             totalFtCycleTsn: t.Union([t.Number(), t.Null()]),
             remarks: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             createdBy: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
@@ -872,15 +825,7 @@ export const dailyLogRouter = new Elysia({
       const logToDelete = await db
         .select({ recordDate: dailyLog.recordDate })
         .from(dailyLog)
-        .where(
-          and(
-            eq(dailyLog.id, Number(params.id)),
-            eq(
-              dailyLog.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(dailyLog.id, Number(params.id)))
         .limit(1);
 
       if (!logToDelete.length) {
@@ -889,15 +834,7 @@ export const dailyLogRouter = new Elysia({
 
       const deleted = await db
         .delete(dailyLog)
-        .where(
-          and(
-            eq(dailyLog.id, Number(params.id)),
-            eq(
-              dailyLog.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(dailyLog.id, Number(params.id)))
         .returning();
 
       if (!deleted.length) {
@@ -905,10 +842,7 @@ export const dailyLogRouter = new Elysia({
       }
 
       // Recalculate totals for all subsequent logs
-      await recalculateTotalsAfterDate(
-        logToDelete[0].recordDate,
-        session.activeOrganizationId || "default"
-      );
+      await recalculateTotalsAfterDate(logToDelete[0].recordDate);
 
       return {
         success: true,
@@ -967,9 +901,7 @@ export const dailyLogRouter = new Elysia({
       } = query;
 
       // Build the same where conditions as the main endpoint
-      const whereConditions = [
-        eq(dailyLog.organizationId, session.activeOrganizationId || "default"),
-      ];
+      const whereConditions = [];
 
       // Apply all the same filters (reusing the logic from above)
       if (search) {

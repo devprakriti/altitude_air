@@ -8,3 +8,4 @@ node_modules
 !node_modules/**/*.d.ts
 
 .DS_Store
+apps/server/server

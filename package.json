@@ -18,7 +18,8 @@
     "db:studio": "turbo -F server db:studio",
     "db:generate": "turbo -F server db:generate",
     "db:migrate": "turbo -F server db:migrate",
-    "auth:generate": "turbo -F server auth:generate"
+    "auth:generate": "turbo -F server auth:generate",
+    "deploy": "./deploy.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",

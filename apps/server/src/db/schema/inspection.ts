@@ -18,7 +18,6 @@ export const aircraftMaintenanceProgram = pgTable(
     aircraftId: text("aircraft_id").notNull(), // Aircraft identifier
     programName: text("program_name").notNull(),
     description: text("description"),
-    organizationId: text("organization_id").notNull(), // References Better Auth organization
     status: boolean("status").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -43,7 +42,6 @@ export const outOfPhaseInspection = pgTable("out_of_phase_inspection", {
   daysRemaining: integer("days_remaining"), // Days until due
   hoursRemaining: decimal("hours_remaining", { precision: 10, scale: 2 }), // Hours until due
   remarks: text("remarks"),
-  organizationId: text("organization_id").notNull(), // References Better Auth organization
   createdBy: text("created_by").notNull(), // User who created the record
   status: boolean("status").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

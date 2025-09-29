@@ -211,11 +211,6 @@ onMounted(() => {
             v-for="file in filteredFiles"
             :key="file.id"
             class="group hover:shadow-lg hover:shadow-gray-200/50 transition-all duration-200 hover:-translate-y-1 cursor-pointer border-0 ring-1 ring-gray-200 hover:ring-gray-300"
-            :ui="{
-              body: { padding: 'p-5' },
-              background: 'bg-white',
-              rounded: 'rounded-xl',
-            }"
             @click="handleDownload(file)"
           >
             <!-- Header with Badge and Actions -->
@@ -329,7 +324,7 @@ onMounted(() => {
           class="text-center py-16"
         >
           <div
-            class="bg-gradient-to-br from-primary-300 to-primary-500 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+            class="bg-gradient-to-br from-primary-400 to-primary-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
           >
             <UIcon name="i-lucide-folder-open" class="w-12 h-12 text-white" />
           </div>
@@ -345,7 +340,7 @@ onMounted(() => {
             @click="openUploadModal"
             icon="i-lucide-plus"
             size="lg"
-            class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+            class="bg-gradient-to-r from-primary-400 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg hover:shadow-xl transition-all duration-200"
           >
             Upload Document
           </UButton>

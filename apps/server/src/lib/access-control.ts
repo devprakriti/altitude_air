@@ -1,86 +1,158 @@
 import { s3Client } from "./s3";
 
+// User roles
+export type UserRole = "admin" | "user";
+
+// Resource types in the system
+export type ResourceType = 
+  | "daily_logs"
+  | "inspections" 
+  | "technical_library"
+  | "manuals"
+  | "monitoring_charts"
+  | "files"
+  | "users"
+  | "system_config";
+
+// Operations that can be performed on resources
+export type Operation = "create" | "read" | "update" | "delete" | "list";
+
+// Result of access control check
 export type AccessControlResult = {
   hasAccess: boolean;
   error?: string;
 };
 
-/**
- * Check if user has access to a specific file
- */
-export async function checkFileAccess(
-  fileKey: string,
-  userId: string,
-  organizationId?: string
-): Promise<AccessControlResult> {
-  try {
-    // Check if file exists
-    const exists = await s3Client.exists(fileKey);
-    if (!exists) {
-      return { hasAccess: false, error: "File not found" };
-    }
+// Context for access control decisions
+export type AccessContext = {
+  userId: string;
+  userRole: UserRole;
+  resourceType: ResourceType;
+  operation: Operation;
+  resourceId?: string | number;
+  additionalData?: Record<string, any>;
+};
 
-    // Check if file belongs to user (basic path-based access control)
-    const userPrefix = `uploads/${userId}/`;
-    if (!fileKey.startsWith(userPrefix)) {
-      return {
-        hasAccess: false,
-        error: "Access denied: File does not belong to user",
+/**
+ * Permission matrix defining what each role can do with each resource
+ */
+const PERMISSION_MATRIX: Record<UserRole, Record<ResourceType, Operation[]>> = {
+  admin: {
+    daily_logs: ["create", "read", "update", "delete", "list"],
+    inspections: ["create", "read", "update", "delete", "list"],
+    technical_library: ["create", "read", "update", "delete", "list"],
+    manuals: ["create", "read", "update", "delete", "list"],
+    monitoring_charts: ["create", "read", "update", "delete", "list"],
+    files: ["create", "read", "update", "delete", "list"],
+    users: ["create", "read", "update", "delete", "list"],
+    system_config: ["create", "read", "update", "delete", "list"],
+  },
+  user: {
+    daily_logs: ["create", "read", "update", "delete", "list"],
+    inspections: ["create", "read", "update", "delete", "list"],
+    technical_library: ["read", "list"], // Users can only view technical library
+    manuals: ["read", "list"], // Users can only view manuals
+    monitoring_charts: ["read", "list"], // Users can only view charts
+    files: ["create", "read", "update", "delete", "list"], // Users can manage their own files
+    users: [], // Users cannot manage other users
+    system_config: [], // Users cannot access system config
+  },
+};
+
+/**
+ * Main access control function - checks if user has permission for operation
+ */
+export function checkAccess(context: AccessContext): AccessControlResult {
+  try {
+    const { userRole, resourceType, operation } = context;
+
+    // Check if role exists
+    if (!PERMISSION_MATRIX[userRole]) {
+      return { 
+        hasAccess: false, 
+        error: `Invalid user role: ${userRole}` 
       };
     }
 
-    // Additional organization-based access control if needed
-    if (organizationId) {
-      // You can implement organization-level access control here
-      // For example, check if the file is in an organization-specific folder
-      const orgPrefix = `uploads/${organizationId}/`;
-      if (!(fileKey.startsWith(orgPrefix) || fileKey.startsWith(userPrefix))) {
-        return {
-          hasAccess: false,
-          error: "Access denied: File not accessible by organization",
-        };
-      }
+    // Check if resource type exists for this role
+    if (!PERMISSION_MATRIX[userRole][resourceType]) {
+      return { 
+        hasAccess: false, 
+        error: `Invalid resource type: ${resourceType}` 
+      };
     }
 
-    return { hasAccess: true };
-  } catch (_error) {
-    return { hasAccess: false, error: "Access control check failed" };
+    // Check if operation is allowed for this role and resource
+    const allowedOperations = PERMISSION_MATRIX[userRole][resourceType];
+    if (!allowedOperations.includes(operation)) {
+      return { 
+        hasAccess: false, 
+        error: `Access denied: ${userRole} cannot ${operation} ${resourceType}` 
+      };
+    }
+
+    // Additional resource-specific checks
+    return performResourceSpecificChecks(context);
+  } catch (error) {
+    return { 
+      hasAccess: false, 
+      error: "Access control check failed" 
+    };
   }
 }
 
 /**
- * Check if user has access to a file list/prefix
+ * Perform additional resource-specific access control checks
  */
-export function checkFileListAccess(
-  prefix: string,
-  userId: string,
-  organizationId?: string
-): AccessControlResult {
-  try {
-    // Ensure user can only list their own files
+function performResourceSpecificChecks(context: AccessContext): AccessControlResult {
+  const { resourceType, userId, additionalData } = context;
+
+  switch (resourceType) {
+    case "files":
+      return checkFileResourceAccess(context);
+    
+    case "users":
+      // Only allow users to access their own user record for read operations
+      if (context.operation === "read" && context.resourceId === userId) {
+        return { hasAccess: true };
+      }
+      return { hasAccess: false, error: "Can only access own user record" };
+    
+    default:
+      // For most resources, if we got here, access is granted
+      return { hasAccess: true };
+  }
+}
+
+/**
+ * File-specific access control checks
+ */
+function checkFileResourceAccess(context: AccessContext): AccessControlResult {
+  const { operation, userId, additionalData } = context;
+  const fileKey = additionalData?.fileKey as string;
+
+  if (!fileKey) {
+    return { hasAccess: true }; // Allow operation if no specific file
+  }
+
+  // Validate file key format
+  const keyValidation = validateFileKey(fileKey);
+  if (!keyValidation.hasAccess) {
+    return keyValidation;
+  }
+
+  // Check file ownership for non-admin users
+  if (context.userRole !== "admin") {
     const userPrefix = `uploads/${userId}/`;
-    if (!prefix.startsWith(userPrefix)) {
+    if (!fileKey.startsWith(userPrefix)) {
       return {
         hasAccess: false,
-        error: "Access denied: Can only list own files",
+        error: "Access denied: Can only access own files",
       };
     }
-
-    // Additional organization-based access control
-    if (organizationId) {
-      const orgPrefix = `uploads/${organizationId}/`;
-      if (!(prefix.startsWith(orgPrefix) || prefix.startsWith(userPrefix))) {
-        return {
-          hasAccess: false,
-          error: "Access denied: Can only list organization files",
-        };
-      }
-    }
-
-    return { hasAccess: true };
-  } catch (_error) {
-    return { hasAccess: false, error: "File list access check failed" };
   }
+
+  return { hasAccess: true };
 }
 
 /**
@@ -119,107 +191,118 @@ export function validateFileKey(fileKey: string): AccessControlResult {
 }
 
 /**
- * Check if user has permission to perform file operations
+ * Convenience function to check if user has access to a specific file
  */
-export function checkFileOperationPermission(
-  operation: "read" | "write" | "delete" | "list",
-  _userId: string,
-  _organizationId?: string
-): AccessControlResult {
-  try {
-    // Basic permission checks
-    switch (operation) {
-      case "read":
-      case "write":
-      case "delete":
-      case "list":
-        // All authenticated users can perform these operations on their own files
-        return { hasAccess: true };
-
-      default:
-        return { hasAccess: false, error: "Unknown operation" };
-    }
-  } catch (_error) {
-    return { hasAccess: false, error: "Permission check failed" };
-  }
-}
-
-/**
- * Check if user has permission to perform technical library operations
- */
-export function checkTechnicalLibraryPermission(
-  operation: "read" | "write" | "delete" | "list",
-  userRole: string,
-  organizationId: string,
-  userOrganizationId?: string
-): AccessControlResult {
-  try {
-    // Check organization access
-    if (userOrganizationId && userOrganizationId !== organizationId) {
-      return {
-        hasAccess: false,
-        error: "Access denied: Can only access own organization files",
-      };
-    }
-
-    // Role-based permissions
-    switch (userRole) {
-      case "admin":
-        // Admin can do everything
-        return { hasAccess: true };
-
-      case "user":
-        // Users can only read and list (view/download)
-        if (operation === "read" || operation === "list") {
-          return { hasAccess: true };
-        }
-        return {
-          hasAccess: false,
-          error: "Access denied: Users can only view and download files",
-        };
-
-      default:
-        return { hasAccess: false, error: "Access denied: Invalid user role" };
-    }
-  } catch (_error) {
-    return { hasAccess: false, error: "Permission check failed" };
-  }
-}
-
-/**
- * Comprehensive access control check for file operations
- */
-export async function checkFileAccessControl(
+export async function checkFileAccess(
   fileKey: string,
-  userId: string,
-  operation: "read" | "write" | "delete" | "list",
-  organizationId?: string
+  userId: string
 ): Promise<AccessControlResult> {
   try {
-    // Validate file key format
-    const keyValidation = validateFileKey(fileKey);
-    if (!keyValidation.hasAccess) {
-      return keyValidation;
+    // Check if file exists
+    const exists = await s3Client.exists(fileKey);
+    if (!exists) {
+      return { hasAccess: false, error: "File not found" };
     }
 
-    // Check operation permission
-    const permissionCheck = checkFileOperationPermission(
-      operation,
-      userId,
-      organizationId
-    );
-    if (!permissionCheck.hasAccess) {
-      return permissionCheck;
-    }
-
-    // For list operations, check prefix access
-    if (operation === "list") {
-      return checkFileListAccess(fileKey, userId, organizationId);
-    }
-
-    // For other operations, check specific file access
-    return await checkFileAccess(fileKey, userId, organizationId);
+    return { hasAccess: true };
   } catch (_error) {
-    return { hasAccess: false, error: "Access control check failed" };
+    return { hasAccess: false, error: "File access check failed" };
   }
+}
+
+/**
+ * Helper functions for common access control patterns
+ */
+export const AccessControl = {
+  // Check if user can perform operation on resource type
+  can: (userRole: UserRole, operation: Operation, resourceType: ResourceType): boolean => {
+    return checkAccess({ 
+      userRole, 
+      operation, 
+      resourceType, 
+      userId: "" // Not needed for basic checks
+    }).hasAccess;
+  },
+
+  // Check if user is admin
+  isAdmin: (userRole: UserRole): boolean => userRole === "admin",
+
+  // Check if user can modify data (create/update/delete)
+  canModify: (userRole: UserRole, resourceType: ResourceType): boolean => {
+    const context = { userRole, resourceType, operation: "update" as Operation, userId: "" };
+    return checkAccess(context).hasAccess;
+  },
+
+  // Check if user can view data (read/list)
+  canView: (userRole: UserRole, resourceType: ResourceType): boolean => {
+    const context = { userRole, resourceType, operation: "read" as Operation, userId: "" };
+    return checkAccess(context).hasAccess;
+  },
+};
+
+/**
+ * Auto-infer resource type from route path
+ */
+function inferResourceType(path: string): ResourceType | null {
+  const pathLower = path.toLowerCase();
+  
+  if (pathLower.includes('daily-log') || pathLower.includes('dailylog')) return 'daily_logs';
+  if (pathLower.includes('inspection')) return 'inspections';
+  if (pathLower.includes('technical-library') || pathLower.includes('technicallibrary')) return 'technical_library';
+  if (pathLower.includes('manual')) return 'manuals';
+  if (pathLower.includes('monitoring') || pathLower.includes('chart')) return 'monitoring_charts';
+  if (pathLower.includes('file') || pathLower.includes('upload') || pathLower.includes('download')) return 'files';
+  if (pathLower.includes('user') || pathLower.includes('member')) return 'users';
+  if (pathLower.includes('system-config') || pathLower.includes('config')) return 'system_config';
+  
+  return null;
+}
+
+/**
+ * Auto-infer operation from HTTP method
+ */
+function inferOperation(method: string): Operation {
+  const methodUpper = method.toUpperCase();
+  
+  switch (methodUpper) {
+    case 'POST': return 'create';
+    case 'GET': return 'read';
+    case 'PUT':
+    case 'PATCH': return 'update';
+    case 'DELETE': return 'delete';
+    default: return 'read';
+  }
+}
+
+/**
+ * Auto-access control that infers permissions from route context
+ */
+export function autoAccessControl(context: {
+  user: { id: string; role: UserRole };
+  request: { method: string; url: string };
+}) {
+  const { user, request } = context;
+  
+  // Extract path from URL
+  const url = new URL(request.url);
+  const path = url.pathname;
+  
+  // Infer resource type and operation
+  const resourceType = inferResourceType(path);
+  const operation = inferOperation(request.method);
+  
+  // If we can't infer resource type, allow access (fallback)
+  if (!resourceType) {
+    return { hasAccess: true };
+  }
+  
+  // Check access using inferred values
+  const accessResult = checkAccess({
+    userId: user.id,
+    userRole: user.role,
+    resourceType,
+    operation,
+  });
+
+  return accessResult;
 }

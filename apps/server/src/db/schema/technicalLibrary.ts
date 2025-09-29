@@ -18,7 +18,6 @@ export const technicalLibraryFiles = pgTable("technical_library_files", {
   fileSize: integer("file_size").notNull(),
   mimeType: text("mime_type").notNull(),
   remarks: text("remarks"),
-  organizationId: text("organization_id").notNull(),
   uploadedBy: text("uploaded_by").notNull(),
   status: boolean("status").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -29,6 +28,6 @@ export const technicalLibraryFiles = pgTable("technical_library_files", {
 export const technicalLibraryFilesRelations = relations(
   technicalLibraryFiles,
   ({ one }) => ({
-    // Organization relationship is handled by Better Auth
+    // User relationship for uploadedBy field
   })
 );

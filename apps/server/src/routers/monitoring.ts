@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../lib/auth";
 import { commonErrors } from "../lib/error-handler";
-import { OrganizationService } from "../services/organization";
+import { MonitoringService } from "../services/monitoringService";
 
 export const monitoringRouter = new Elysia({
   prefix: "/monitoring",
@@ -8,15 +9,15 @@ export const monitoringRouter = new Elysia({
     tags: ["Monitoring"],
   },
 })
+  .use(authPlugin)
   .post(
     "/charts",
     async ({ body }) => {
-      return await OrganizationService.createMonitoringChart({
+      return await MonitoringService.createMonitoringChart({
         name: body.name,
         description: body.description,
         chartType: body.chartType,
         config: body.config ?? {},
-        organizationId: body.organizationId,
       });
     },
     {
@@ -26,7 +27,6 @@ export const monitoringRouter = new Elysia({
         description: t.Optional(t.String()),
         chartType: t.String(),
         config: t.Optional(t.Any()),
-        organizationId: t.String(),
       }),
       response: {
         200: t.Array(
@@ -36,7 +36,6 @@ export const monitoringRouter = new Elysia({
             description: t.Union([t.String(), t.Null()]),
             chartType: t.String(),
             config: t.Any(),
-            organizationId: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
             updatedAt: t.Date(),
@@ -53,8 +52,7 @@ export const monitoringRouter = new Elysia({
   .get(
     "/charts",
     async ({ query }) => {
-      return await OrganizationService.getMonitoringCharts(
-        query.organizationId,
+      return await MonitoringService.getMonitoringCharts(
         query.page || 1,
         query.pageSize || 10
       );
@@ -62,7 +60,6 @@ export const monitoringRouter = new Elysia({
     {
       auth: true,
       query: t.Object({
-        organizationId: t.String(),
         page: t.Optional(t.Numeric()),
         pageSize: t.Optional(t.Numeric()),
       }),
@@ -75,7 +72,6 @@ export const monitoringRouter = new Elysia({
               description: t.Union([t.String(), t.Null()]),
               chartType: t.String(),
               config: t.Any(),
-              organizationId: t.String(),
               status: t.Boolean(),
               createdAt: t.Date(),
               updatedAt: t.Date(),
@@ -96,7 +92,7 @@ export const monitoringRouter = new Elysia({
   .put(
     "/charts/:id",
     async ({ params, body }) => {
-      return await OrganizationService.updateMonitoringChart(params.id, body);
+      return await MonitoringService.updateMonitoringChart(params.id, body);
     },
     {
       auth: true,
@@ -106,7 +102,6 @@ export const monitoringRouter = new Elysia({
         description: t.Optional(t.String()),
         chartType: t.Optional(t.String()),
         config: t.Optional(t.Any()),
-        organizationId: t.String(),
       }),
       response: {
         200: t.Array(
@@ -116,7 +111,6 @@ export const monitoringRouter = new Elysia({
             description: t.Union([t.String(), t.Null()]),
             chartType: t.String(),
             config: t.Any(),
-            organizationId: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
             updatedAt: t.Date(),
@@ -133,7 +127,7 @@ export const monitoringRouter = new Elysia({
   .delete(
     "/charts/:id",
     async ({ params }) => {
-      return await OrganizationService.deleteMonitoringChart(params.id);
+      return await MonitoringService.deleteMonitoringChart(params.id);
     },
     {
       auth: true,
@@ -146,7 +140,6 @@ export const monitoringRouter = new Elysia({
             description: t.Union([t.String(), t.Null()]),
             chartType: t.String(),
             config: t.Any(),
-            organizationId: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
             updatedAt: t.Date(),

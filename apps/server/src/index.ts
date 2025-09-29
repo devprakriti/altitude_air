@@ -2,6 +2,7 @@ import "dotenv/config";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { fromTypes } from "@elysiajs/openapi/gen";
+import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
 import { helmet } from "elysia-helmet";
 import { authPlugin, OpenAPI } from "./lib/auth";
@@ -21,8 +22,24 @@ import { manualsRouter } from "./routers/manuals";
 import { monitoringRouter } from "./routers/monitoring";
 import { technicalLibraryRouter } from "./routers/technicalLibrary";
 import { todoRouter } from "./routers/todo";
+import logixlysia from "logixlysia";
 
 const app = new Elysia()
+  // Security first
+  .use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+          scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    })
+  )
   .use(
     cors({
       origin: process.env.CORS_ORIGIN || "",
@@ -31,9 +48,32 @@ const app = new Elysia()
       credentials: true,
     })
   )
+  // Rate limiting and validation
   .use(createRateLimitMiddleware(100, 60_000)) // 100 requests per minute
   .use(createValidationMiddleware())
   .use(createGlobalErrorHandler())
+  // Logging
+  .use(
+    logixlysia({
+      config: {
+        showStartupMessage: true,
+        startupMessageFormat: "simple",
+        timestamp: {
+          translateTime: "yyyy-mm-dd HH:MM:ss",
+        },
+        ip: true,
+        logFilePath: "./logs/server.log",
+        customLogFormat:
+          "🚁 {now} {level} {duration} {method} {pathname} {status} {message} {ip} {epoch}",
+        logFilter: {
+          level: ["ERROR", "WARNING", "INFO"],
+          status: [500, 404],
+          method: "GET",
+        },
+      },
+    })
+  )
+  // OpenAPI documentation
   .use(
     openapi({
       references: fromTypes(
@@ -41,6 +81,7 @@ const app = new Elysia()
           ? "dist/index.d.ts"
           : "src/index.ts"
       ),
+      path: "/docs",
       documentation: {
         info: {
           title: "Heli API",
@@ -94,15 +135,26 @@ const app = new Elysia()
       },
     })
   )
-  .use(helmet())
-  .use(authPlugin)
-  .use(todoRouter)
-  .use(monitoringRouter)
-  .use(manualsRouter)
-  .use(filesRouter)
-  .use(dailyLogRouter)
-  .use(inspectionRouter)
-  .use(technicalLibraryRouter)
+
+  .group("/api", (app) =>
+    app
+      .use(authPlugin)
+      .use(todoRouter)
+      .use(monitoringRouter)
+      .use(manualsRouter)
+      .use(filesRouter)
+      .use(dailyLogRouter)
+      .use(inspectionRouter)
+      .use(technicalLibraryRouter)
+  )
+  // Static files (after API routes to avoid conflicts)
+  // .use(
+  //   staticPlugin({
+  //     assets: "../web/.output/public",
+  //     prefix: "/",
+  //     staticLimit: 1024 * 1024 * 10, // 10MB
+  //   })
+  // )
   .get(
     "/health",
     async ({ set }) => {

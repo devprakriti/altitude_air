@@ -109,6 +109,7 @@ export const todoRouter = new Elysia({
         .returning();
     },
     {
+      auth: true,
       admin: true,
       params: t.Object({ id: t.Numeric() }),
       response: {

@@ -31,7 +31,6 @@ export const dailyLog = pgTable("daily_log", {
   totalGgCycleTsn: integer("total_gg_cycle_tsn"),
   totalFtCycleTsn: integer("total_ft_cycle_tsn"),
   remarks: text("remarks"),
-  organizationId: text("organization_id").notNull(), // References Better Auth organization
   createdBy: text("created_by").notNull(), // User who created the record
   status: boolean("status").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -40,5 +39,5 @@ export const dailyLog = pgTable("daily_log", {
 
 // Relations
 export const dailyLogRelations = relations(dailyLog, ({ one }) => ({
-  // Organization relationship is handled by Better Auth
+  // User relationship for createdBy field
 }));

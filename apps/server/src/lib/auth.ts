@@ -1,11 +1,19 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, openAPI, organization } from "better-auth/plugins";
+import { admin, openAPI } from "better-auth/plugins";
 import { Elysia } from "elysia";
 import { db } from "../db";
+import {
+  checkAccess,
+  autoAccessControl,
+  type AccessContext,
+  type UserRole,
+  type ResourceType,
+  type Operation,
+} from "./access-control";
 
 export const auth = betterAuth({
-  basePath: "/auth",
+  basePath: "/api/auth",
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
@@ -22,12 +30,10 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    organization({
-      allowUserToCreateOrganization: true,
-      allowUserToCreateRole: true,
-    }),
     admin(),
-    openAPI(),
+    openAPI({
+      path: "/docs",
+    }),
   ],
 });
 
@@ -39,26 +45,28 @@ export const authPlugin = new Elysia({ name: "auth" })
   })
   .macro({
     auth: {
-      async resolve({ status, request: { headers }, getAuth }) {
-        const session = await getAuth(headers);
+      async resolve({ status, request, getAuth }) {
+        const session = await getAuth(request.headers);
         if (!session) {
           return status(401);
         }
-        return {
-          user: session.user,
-          session: session.session,
-        };
-      },
-    },
-    admin: {
-      async resolve({ status, request: { headers }, getAuth }) {
-        const session = await getAuth(headers);
-        if (!session) {
-          return status(401);
+
+        // Apply automatic access control by default
+        const accessResult = autoAccessControl({
+          user: {
+            id: session.user.id,
+            role: (session.user.role as UserRole) || "user",
+          },
+          request: {
+            method: request.method,
+            url: request.url,
+          },
+        });
+
+        if (!accessResult.hasAccess) {
+          return status(403, { error: accessResult.error || "Access denied" });
         }
-        if (session.user.role !== "admin") {
-          return status(403);
-        }
+
         return {
           user: session.user,
           session: session.session,
@@ -71,7 +79,7 @@ let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema());
 
 export const OpenAPI = {
-  getPaths: (prefix = "/auth") =>
+  getPaths: (prefix = "/api/auth") =>
     getSchema().then(({ paths }) => {
       const reference: typeof paths = Object.create(null);
 

@@ -1,5 +1,4 @@
 import { Elysia, t } from "elysia";
-import { checkFileAccessControl } from "../lib/access-control";
 import { authPlugin } from "../lib/auth";
 import {
   generateSecureFileKey,
@@ -87,18 +86,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           return { success: false, error: "File key is required" };
         }
 
-        // Check access control
-        const accessCheck = await checkFileAccessControl(
-          fileKey,
-          user.id,
-          "read",
-          session.activeOrganizationId || undefined
-        );
-
-        if (!accessCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: accessCheck.error };
-        }
+        // Access control is handled by autoAccess macro
 
         // Get file from S3
         const s3File = s3Client.file(fileKey);
@@ -145,18 +133,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           };
         }
 
-        // Check access control
-        const accessCheck = await checkFileAccessControl(
-          fileKey,
-          user.id,
-          "read",
-          session.activeOrganizationId || undefined
-        );
-
-        if (!accessCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: accessCheck.error };
-        }
+        // Access control is handled by autoAccess macro
 
         // Generate presigned URL
         const s3File = s3Client.file(fileKey);
@@ -201,18 +178,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
       try {
         const { prefix = `uploads/${user.id}/`, maxKeys = "100" } = query;
 
-        // Check access control for list operation
-        const accessCheck = await checkFileAccessControl(
-          prefix as string,
-          user.id,
-          "list",
-          session.activeOrganizationId || undefined
-        );
-
-        if (!accessCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: accessCheck.error };
-        }
+        // Access control is handled by autoAccess macro
 
         const result = await s3Client.list({
           prefix: prefix as string,
@@ -269,18 +235,7 @@ export const filesRouter = new Elysia({ prefix: "/files" })
           };
         }
 
-        // Check access control
-        const accessCheck = await checkFileAccessControl(
-          fileKey,
-          user.id,
-          "delete",
-          session.activeOrganizationId || undefined
-        );
-
-        if (!accessCheck.hasAccess) {
-          set.status = 403;
-          return { success: false, error: accessCheck.error };
-        }
+        // Access control is handled by autoAccess macro
 
         // Delete file from S3
         await s3Client.delete(fileKey);

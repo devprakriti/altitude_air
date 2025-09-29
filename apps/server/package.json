@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc -b",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "compile": "bun build src/index.ts --compile --minify-whitespace --minify-syntax --target bun --outfile server",
     "dev": "bun run --hot src/index.ts",
     "start": "bun run dist/index.js",
     "db:push": "drizzle-kit push",
@@ -29,6 +29,7 @@
     "elysia-helmet": "^3.0.0",
     "jspdf": "^3.0.3",
     "lodash-es": "^4.17.21",
+    "logixlysia": "^5.2.0",
     "moment": "^2.30.1",
     "pdf-lib": "^1.17.1",
     "pdfmake": "^0.2.20",

@@ -28,12 +28,7 @@ export const inspectionRouter = new Elysia({
       const offset = (Number.parseInt(page.toString(), 10) - 1) * limit;
 
       // Build where conditions
-      const whereConditions = [
-        eq(
-          aircraftMaintenanceProgram.organizationId,
-          session.activeOrganizationId || "default"
-        ),
-      ];
+      const whereConditions = [];
 
       if (search) {
         whereConditions.push(
@@ -42,25 +37,25 @@ export const inspectionRouter = new Elysia({
       }
 
       // Optimized single query with window function
-      const programs = await db
+      const dbQuery = db
         .select({
           id: aircraftMaintenanceProgram.id,
           aircraftId: aircraftMaintenanceProgram.aircraftId,
           programName: aircraftMaintenanceProgram.programName,
           description: aircraftMaintenanceProgram.description,
-          organizationId: aircraftMaintenanceProgram.organizationId,
           status: aircraftMaintenanceProgram.status,
           createdAt: aircraftMaintenanceProgram.createdAt,
           updatedAt: aircraftMaintenanceProgram.updatedAt,
           totalCount: sql<number>`count(*) over()`,
         })
-        .from(aircraftMaintenanceProgram)
-        .where(and(...whereConditions))
+        .from(aircraftMaintenanceProgram);
+
+      const programs = await (whereConditions.length > 0 ? dbQuery.where(and(...whereConditions)) : dbQuery)
         .orderBy(desc(aircraftMaintenanceProgram.createdAt))
         .limit(limit)
         .offset(offset);
 
-      const totalCount = programs.length > 0 ? programs[0].totalCount : 0;
+      const totalCount: number = programs.length > 0 ? programs[0].totalCount : 0;
       const totalPages = Math.ceil(totalCount / limit);
 
       // Remove totalCount from data
@@ -91,7 +86,6 @@ export const inspectionRouter = new Elysia({
               aircraftId: t.String(),
               programName: t.String(),
               description: t.Union([t.String(), t.Null()]),
-              organizationId: t.String(),
               status: t.Boolean(),
               createdAt: t.Date(),
               updatedAt: t.Date(),
@@ -118,7 +112,6 @@ export const inspectionRouter = new Elysia({
           aircraftId: body.aircraftId,
           programName: body.programName,
           description: body.description,
-          organizationId: session.activeOrganizationId || "default",
         })
         .returning();
 
@@ -146,7 +139,6 @@ export const inspectionRouter = new Elysia({
             aircraftId: t.String(),
             programName: t.String(),
             description: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
             updatedAt: t.Date(),
@@ -174,12 +166,7 @@ export const inspectionRouter = new Elysia({
       } = query;
 
       // Build optimized where conditions
-      const whereConditions = [
-        eq(
-          outOfPhaseInspection.organizationId,
-          session.activeOrganizationId || "default"
-        ),
-      ];
+      const whereConditions = [];
 
       if (programId) {
         whereConditions.push(
@@ -210,8 +197,11 @@ export const inspectionRouter = new Elysia({
         .leftJoin(
           aircraftMaintenanceProgram,
           eq(outOfPhaseInspection.programId, aircraftMaintenanceProgram.id)
-        )
-        .where(and(...whereConditions))
+        );
+
+      const results = await (whereConditions.length > 0 
+        ? inspectionQuery.where(and(...whereConditions)) 
+        : inspectionQuery)
         .orderBy(
           sql`${outOfPhaseInspection.inspectionDueDate} DESC, ${outOfPhaseInspection.createdAt} DESC`
         )
@@ -221,7 +211,6 @@ export const inspectionRouter = new Elysia({
             Number.parseInt(pageSize.toString(), 10)
         );
 
-      const results = await inspectionQuery;
 
       if (!results.length) {
         return {
@@ -282,7 +271,6 @@ export const inspectionRouter = new Elysia({
                 daysRemaining: t.Union([t.Number(), t.Null()]),
                 hoursRemaining: t.Union([t.String(), t.Null()]),
                 remarks: t.Union([t.String(), t.Null()]),
-                organizationId: t.String(),
                 createdBy: t.String(),
                 status: t.Boolean(),
                 createdAt: t.Date(),
@@ -294,7 +282,6 @@ export const inspectionRouter = new Elysia({
                   aircraftId: t.String(),
                   programName: t.String(),
                   description: t.Union([t.String(), t.Null()]),
-                  organizationId: t.String(),
                   status: t.Boolean(),
                   createdAt: t.Date(),
                   updatedAt: t.Date(),
@@ -328,15 +315,7 @@ export const inspectionRouter = new Elysia({
           aircraftMaintenanceProgram,
           eq(outOfPhaseInspection.programId, aircraftMaintenanceProgram.id)
         )
-        .where(
-          and(
-            eq(outOfPhaseInspection.id, Number(params.id)),
-            eq(
-              outOfPhaseInspection.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(outOfPhaseInspection.id, Number(params.id)))
         .limit(1);
 
       if (!inspection.length) {
@@ -370,7 +349,6 @@ export const inspectionRouter = new Elysia({
               daysRemaining: t.Union([t.Number(), t.Null()]),
               hoursRemaining: t.Union([t.String(), t.Null()]),
               remarks: t.Union([t.String(), t.Null()]),
-              organizationId: t.String(),
               createdBy: t.String(),
               status: t.Boolean(),
               createdAt: t.Date(),
@@ -382,7 +360,6 @@ export const inspectionRouter = new Elysia({
                 aircraftId: t.String(),
                 programName: t.String(),
                 description: t.Union([t.String(), t.Null()]),
-                organizationId: t.String(),
                 status: t.Boolean(),
                 createdAt: t.Date(),
                 updatedAt: t.Date(),
@@ -418,7 +395,6 @@ export const inspectionRouter = new Elysia({
           daysRemaining: body.daysRemaining,
           hoursRemaining: body.hoursRemaining,
           remarks: body.remarks,
-          organizationId: session.activeOrganizationId || "default",
           createdBy: user.id,
         })
         .returning();
@@ -467,7 +443,6 @@ export const inspectionRouter = new Elysia({
             daysRemaining: t.Union([t.Number(), t.Null()]),
             hoursRemaining: t.Union([t.String(), t.Null()]),
             remarks: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             createdBy: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
@@ -491,15 +466,7 @@ export const inspectionRouter = new Elysia({
           ...body,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(outOfPhaseInspection.id, Number(params.id)),
-            eq(
-              outOfPhaseInspection.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(outOfPhaseInspection.id, Number(params.id)))
         .returning();
 
       if (!updated.length) {
@@ -547,7 +514,6 @@ export const inspectionRouter = new Elysia({
             daysRemaining: t.Union([t.Number(), t.Null()]),
             hoursRemaining: t.Union([t.String(), t.Null()]),
             remarks: t.Union([t.String(), t.Null()]),
-            organizationId: t.String(),
             createdBy: t.String(),
             status: t.Boolean(),
             createdAt: t.Date(),
@@ -567,15 +533,7 @@ export const inspectionRouter = new Elysia({
     async ({ params, user, session }) => {
       const deleted = await db
         .delete(outOfPhaseInspection)
-        .where(
-          and(
-            eq(outOfPhaseInspection.id, Number(params.id)),
-            eq(
-              outOfPhaseInspection.organizationId,
-              session.activeOrganizationId || "default"
-            )
-          )
-        )
+        .where(eq(outOfPhaseInspection.id, Number(params.id)))
         .returning();
 
       if (!deleted.length) {
