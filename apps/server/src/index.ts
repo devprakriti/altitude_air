@@ -2,7 +2,6 @@ import "dotenv/config";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { fromTypes } from "@elysiajs/openapi/gen";
-import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
 import { helmet } from "elysia-helmet";
 import { authPlugin, OpenAPI } from "./lib/auth";
@@ -136,7 +135,7 @@ const app = new Elysia()
     })
   )
 
-  .group("/api", (app) =>
+  .group("/server", (app) =>
     app
       .use(authPlugin)
       .use(todoRouter)

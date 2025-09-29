@@ -22,8 +22,8 @@ export default defineNuxtConfig({
     public: {
       apiURL:
         process.env.NODE_ENV === "development"
-          ? "http://localhost:3001/api"
-          : process.env.NUXT_PUBLIC_API_URL || "/api",
+          ? "http://localhost:3001/server"
+          : process.env.NUXT_PUBLIC_API_URL || "/server",
     },
   },
   experimental: {
@@ -32,8 +32,8 @@ export default defineNuxtConfig({
   nitro: {
     preset: "bun",
     devProxy: {
-      "/api": {
-        target: "http://localhost:3000/api",
+      "/server": {
+        target: "http://localhost:3000/server",
         changeOrigin: true,
         prependPath: true,
       },

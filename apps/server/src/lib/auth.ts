@@ -13,7 +13,7 @@ import {
 } from "./access-control";
 
 export const auth = betterAuth({
-  basePath: "/api/auth",
+  basePath: "/server/auth",
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
@@ -79,7 +79,7 @@ let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema());
 
 export const OpenAPI = {
-  getPaths: (prefix = "/api/auth") =>
+  getPaths: (prefix = "/server/auth") =>
     getSchema().then(({ paths }) => {
       const reference: typeof paths = Object.create(null);
 
