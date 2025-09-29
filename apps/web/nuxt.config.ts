@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+console.log(process.env.NODE_ENV);
 export default defineNuxtConfig({
   compatibilityDate: "2025-09-17",
   devtools: { enabled: true },
@@ -20,10 +22,10 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiURL:
-        process.env.NODE_ENV === "development"
-          ? "http://localhost:3001/server"
-          : process.env.NUXT_PUBLIC_API_URL || "/server",
+      baseURL:
+        typeof window !== "undefined"
+          ? window.location.origin + "/server"
+          : "http://localhost:3000/server",
     },
   },
   experimental: {

@@ -4,9 +4,9 @@ import type { App } from "../../../server/src/index";
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
-  const apiUrl = config.public.apiURL;
+  const baseURL = config.public.baseURL;
 
-  const client = treaty<App>(apiUrl, {
+  const client = treaty<App>(baseURL, {
     fetch: {
       credentials: "include",
     },

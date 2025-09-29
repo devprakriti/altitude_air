@@ -31,7 +31,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        NUXT_PUBLIC_SERVER_URL: 'http://localhost:3000/api',
         PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`,
       },
       log_file: './apps/web/logs/combined.log',
