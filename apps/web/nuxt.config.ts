@@ -14,7 +14,7 @@ export default defineNuxtConfig({
       apiURL:
         process.env.NODE_ENV === "development"
           ? "http://localhost:3001/api"
-          : process.env.API_URL,
+          : process.env.NUXT_PUBLIC_SERVER_URL || "http://localhost:3000/api",
     },
   },
   experimental: {
