@@ -5,8 +5,14 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig();
   const authUrl = config.public.apiURL;
 
+  // Handle relative URLs by using window.location.origin in browser
+  const baseURL =
+    typeof window !== "undefined" && authUrl.startsWith("/")
+      ? window.location.origin + authUrl + "/auth"
+      : authUrl + "/auth";
+
   const authClient = createAuthClient({
-    baseURL: authUrl + "/auth",
+    baseURL,
     plugins: [admin()],
   });
 
