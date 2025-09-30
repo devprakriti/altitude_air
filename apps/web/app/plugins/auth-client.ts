@@ -3,7 +3,11 @@ import { admin } from "better-auth/plugins";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig();
-  const baseURL = config.public.baseURL;
+  const origin =
+    typeof window === "undefined"
+      ? nuxtApp.ssrContext?.url
+      : window.location.origin;
+  const baseURL = origin + config.public.baseURL;
 
   const authClient = createAuthClient({
     baseURL: baseURL + "/auth",

@@ -2,9 +2,13 @@ import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../../../server/src/index";
 
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig();
-  const baseURL = config.public.baseURL;
+  const origin =
+    typeof window === "undefined"
+      ? nuxtApp.ssrContext?.url
+      : window.location.origin;
+  const baseURL = origin + config.public.baseURL;
 
   const client = treaty<App>(baseURL, {
     fetch: {
