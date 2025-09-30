@@ -15,11 +15,11 @@ export default defineNuxtConfig({
     preference: "light",
     storageKey: "color-mode",
   },
-  // icon: {
-  //   collections: ["lucide"],
-  //   provider: "server",
-  //   serverBundle: "local",
-  // },
+  icon: {
+    collections: ["lucide"],
+    provider: "server",
+    serverBundle: "local",
+  },
   runtimeConfig: {
     public: {
       baseURL: "/server",
@@ -29,7 +29,7 @@ export default defineNuxtConfig({
     viewTransition: true,
   },
   nitro: {
-    // preset: "bun",
+    preset: "bun",
     devProxy: {
       "/server": {
         target: "http://localhost:3000/server",

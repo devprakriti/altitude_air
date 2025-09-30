@@ -24,6 +24,12 @@ import { todoRouter } from "./routers/todo";
 import logixlysia from "logixlysia";
 
 const app = new Elysia()
+  // Log request origins
+  .onRequest(({ request }) => {
+    console.log(
+      `🌐 ${request.method} ${request.url} Origin: ${request.headers.get("origin") || "none"}`
+    );
+  })
   // Security first
   .use(
     helmet({
@@ -33,7 +39,7 @@ const app = new Elysia()
           styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
           scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
           imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", "https://api.iconify.design"],
         },
       },
       crossOriginEmbedderPolicy: false,
@@ -41,7 +47,9 @@ const app = new Elysia()
   )
   .use(
     cors({
-      origin: process.env.CORS_ORIGIN || "",
+      origin:
+        process.env.CORS_ORIGIN ||
+        (process.env.NODE_ENV === "development" ? "http://localhost:3001" : ""),
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
