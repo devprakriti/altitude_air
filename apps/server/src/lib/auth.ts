@@ -26,11 +26,7 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
   advanced: {
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      httpOnly: true,
-    },
+    useSecureCookies: false,
   },
   plugins: [
     admin(),

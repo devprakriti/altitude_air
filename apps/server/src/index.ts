@@ -21,7 +21,7 @@ import { manualsRouter } from "./routers/manuals";
 import { monitoringRouter } from "./routers/monitoring";
 import { technicalLibraryRouter } from "./routers/technicalLibrary";
 import { todoRouter } from "./routers/todo";
-import logixlysia from "logixlysia";
+// import logixlysia from "logixlysia";
 
 const app = new Elysia()
   // Log request origins
@@ -51,7 +51,7 @@ const app = new Elysia()
         process.env.CORS_ORIGIN ||
         (process.env.NODE_ENV === "development" ? "http://localhost:3001" : ""),
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
       credentials: true,
     })
   )
@@ -59,27 +59,27 @@ const app = new Elysia()
   .use(createRateLimitMiddleware(100, 60_000)) // 100 requests per minute
   .use(createValidationMiddleware())
   .use(createGlobalErrorHandler())
-  // Logging
-  .use(
-    logixlysia({
-      config: {
-        showStartupMessage: true,
-        startupMessageFormat: "simple",
-        timestamp: {
-          translateTime: "yyyy-mm-dd HH:MM:ss",
-        },
-        ip: true,
-        logFilePath: "./logs/server.log",
-        customLogFormat:
-          "🚁 {now} {level} {duration} {method} {pathname} {status} {message} {ip} {epoch}",
-        logFilter: {
-          level: ["ERROR", "WARNING", "INFO"],
-          status: [500, 404],
-          method: "GET",
-        },
-      },
-    })
-  )
+  // Logging - temporarily disabled due to dependency conflicts
+  // .use(
+  //   logixlysia({
+  //     config: {
+  //       showStartupMessage: true,
+  //       startupMessageFormat: "simple",
+  //       timestamp: {
+  //         translateTime: "yyyy-mm-dd HH:MM:ss",
+  //       },
+  //       ip: true,
+  //       logFilePath: "./logs/server.log",
+  //       customLogFormat:
+  //         "🚁 {now} {level} {duration} {method} {pathname} {status} {message} {ip} {epoch}",
+  //       logFilter: {
+  //         level: ["ERROR", "WARNING", "INFO"],
+  //         status: [500, 404],
+  //         method: "GET",
+  //       },
+  //     },
+  //   })
+  // )
   // OpenAPI documentation
   .use(
     openapi({
